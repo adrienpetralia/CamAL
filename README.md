@@ -48,7 +48,7 @@ $$
 where $x(t)$ is the total power consumption measured by the main meter at timestep $t$; $N$ is the total number of appliances connected to the smart meter; and $\epsilon(t)$ is defined as the noise or the measurement error at timestep $t$.
 
 <p align="center">
-<img width="300" src="./images/problem_def.png"/>
+<img width="600" src="./images/problem_def.png"/>
 </p>
 
 Practitioners are interested in solving two problems: (i) discovering *if* an appliance has been activating (Appliance detection problem), and (ii) identifying *when* an appliance has been used (Per-Timestamp Appliance Localization Problem). The two problems are formalized as follows:
@@ -99,7 +99,7 @@ As mentioned above, our proposed approach CamAL enables the detection and locali
 CamAL can be decomposed into two parts: (1) an ensemble of deep-learning classifiers that performs the detection and (2) an explainability-based module that localizes the appliance (when detected).
 
 <p align="center">
-<img width="300" src="./images/CamAL.png"/>
+<img width="500" src="./images/CamAL.png"/>
 </p>
 
 #### Step 1: CamAL ResNets Ensemble for Problem 1
@@ -111,7 +111,7 @@ Each residual block comprises 3 convolutional blocks as described in the ConvNet
 The three residual blocks came with respectively $\{64, 128, 128\}$ filters, and, at this end, a global average pooling is performed along the temporal dimension followed by a linear layer and a softmax activation function to perform classification.
 
 <p align="center">
-<img width="300" src="./images/ResNetDetail.png"/>
+<img width="500" src="./images/ResNetDetail.png"/>
 </p>
 
 We leverage the strong proposed baseline~\cite{ResNet_tsc_2017} to an ensemble of $N$ networks differing in kernel sizes within the convolutional layers.
