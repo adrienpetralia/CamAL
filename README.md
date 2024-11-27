@@ -10,7 +10,7 @@ However, such labels are expensive to collect and extremely scarce in practice, 
 In this paper, we introduce CamAL, a weakly supervised approach for appliance pattern localization that only requires information on the presence of an appliance in a household to be trained.
 
 <p align="center">
-<img width="300" src="./images/IntroFigure.png"/>
+<img width="600" src="./images/IntroFigure.png"/>
 </p>
 
 ## Contributors
