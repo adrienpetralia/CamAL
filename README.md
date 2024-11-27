@@ -114,7 +114,7 @@ The three residual blocks came with respectively $\{64, 128, 128\}$ filters, and
 <img width="500" src="./images/ResNetDetail.png"/>
 </p>
 
-We leverage the strong proposed baseline~\cite{ResNet_tsc_2017} to an ensemble of $N$ networks differing in kernel sizes within the convolutional layers.
+We leverage the strong proposed baseline to an ensemble of $N$ networks differing in kernel sizes within the convolutional layers.
 By default, we set $N=5$.
 More specifically, the ensemble is based on an ensemble of networks trained with different kernel sizes $k_p$  (with $k_p \in K_p = {5, 7, 9, 15, 25}$). 
 The ResNet architecture used in our ensemble is depicted in the figure above according to a kernel size $k_p$.
