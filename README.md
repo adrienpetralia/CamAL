@@ -23,8 +23,9 @@ In this paper, we introduce CamAL, a weakly supervised approach for appliance pa
 ## Outline
 
 Overall our repo contains the following elements:
-- [ExpesHelpers](https://github.com/adrienpetralia/CamAL/tree/main/ExpesHelpers): Preprocessing and Postprocessing fonctions for our experimental evaluation
-- [Helpers](https://github.com/adrienpetralia/CamAL/tree/main/Helpers): Preprocessing and Postprocessing fonctions
+- [Expes](https://github.com/adrienpetralia/CamAL/tree/main/Expes): Script to run our experiments for each dataset
+- [Configs](https://github.com/adrienpetralia/CamAL/tree/main/Configs): Config files for our experimental evaluation
+- [Helpers](https://github.com/adrienpetralia/CamAL/tree/main/Helpers): Preprocessing and Postprocessing functions
 - [Models](https://github.com/adrienpetralia/CamAL/tree/main/Models): CamAL code and other state of the art implementations
 
 ## CamAL in Short
