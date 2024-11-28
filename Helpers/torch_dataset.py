@@ -4,6 +4,21 @@ import torch
     
 from sklearn.preprocessing import StandardScaler
     
+
+class SimpleDataset(torch.utils.data.Dataset):
+    def __init__(self, X):
+        self.samples = X
+            
+        if len(self.samples.shape)==2:
+            self.samples = np.expand_dims(self.samples, axis=1)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self,idx):
+        return self.samples[idx]
+    
+
 class NILMscaler():
     """
     Scale NILM dataset

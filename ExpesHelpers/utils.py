@@ -11,13 +11,8 @@ from Helpers.torch_dataset import *
 from Helpers.torch_trainer import *
 from Helpers.other import *
 
-from Models.Classifiers.ResNet3 import ResNet3
-from Models.Classifiers.ResNet3LN import ResNet3LN
-from Models.Classifiers.ResNet5 import ResNet5
-from Models.Classifiers.ResNet5LN import ResNet5LN
 from Models.Classifiers.CamALResNet import CamALResNet
 
-from Models.Homemade.NILMFormer import NILMFormer
 from Models.Sota.BiGRU import BiGRU
 from Models.Sota.UNET_NILM import UNetNiLM
 from Models.Sota.Zhang_SeqtoSeq import Zhang_SeqtoSeq
@@ -49,10 +44,7 @@ def save_log_results(log_results, path, name_file='LogResults.pkl'):
 
 
 def get_nilm_instance(model_name, window_size):
-    if model_name =='NILMFormer':
-        inst = NILMFormer(mode="prediction", n_encoder_layers=3, c_in=1, c_out=1, c_embedding=8)
-        dt_params = {'model_name': model_name, 'lr': 1e-4, 'wd': 0, 'batch_size': 32, 'epochs': 30, 'p_es': 10, 'p_rlr': 5, 'n_warmup_epochs': 5, 'apply_sigmoid': True, 'training_in_model': False}
-    elif model_name=='TPNILM':
+    if model_name=='TPNILM':
         inst = TPNILM(in_channels=1)
         dt_params = {'model_name': model_name, 'lr': 1e-4, 'wd': 0, 'batch_size': 32, 'epochs': 30, 'p_es': 10, 'p_rlr': 5, 'n_warmup_epochs': 5, 'apply_sigmoid': True, 'training_in_model': True}
     elif model_name=='TransNILM':
@@ -78,19 +70,14 @@ def get_nilm_instance(model_name, window_size):
 
     return inst, dt_params
 
-def get_pytorch_style_dataset(param_training_global,
+def get_pytorch_style_dataset(expes_config,
                               model_name,
                               data_train, st_date_train,
                               data_valid, st_date_valid,
                               data_test,  st_date_test,
                               data_train_weak=None, st_date_train_weak=None):
-    if model_name =='NILMFormer':
-        train_dataset = NILMDataset(data_train, st_date=st_date_train,
-                                    X_weak=data_train_weak,  st_date_weak=st_date_train_weak, 
-                                    list_exo_variables=["minute", "hour", "dow", "month"], freq=param_training_global['sampling_rate'])
-        valid_dataset = NILMDataset(data_valid, st_date=st_date_valid, list_exo_variables=["minute", "hour", "dow", "month"], freq=param_training_global['sampling_rate'])
-        test_dataset  = NILMDataset(data_test,  st_date=st_date_test,  list_exo_variables=["minute", "hour", "dow", "month"], freq=param_training_global['sampling_rate'])
-    elif model_name=='CRNNStrong':
+
+    if model_name=='CRNNStrong':
         train_dataset = NILMDataset(data_train, X_weak=data_train_weak, return_output='strong_weak')
         valid_dataset = NILMDataset(data_valid)
         test_dataset  = NILMDataset(data_test)
@@ -114,15 +101,7 @@ def get_pytorch_style_dataset(param_training_global,
     return train_dataset, valid_dataset, test_dataset
 
 def get_resnet_instance(resnet_name, kernel_size, **kwargs):
-    if resnet_name =='ResNet3':
-        inst = ResNet3(kernel_sizes=[kernel_size, 7, 3], **kwargs)
-    elif resnet_name =='ResNet3LN':
-        inst = ResNet3LN(kernel_sizes=[kernel_size, 7, 3], **kwargs)
-    elif resnet_name=='ResNet5':
-        inst = ResNet5(kernel_sizes=[kernel_size, 7, 3], **kwargs)
-    elif resnet_name =='ResNet5LN':
-        inst = ResNet5LN(kernel_sizes=[kernel_size, 7, 3], **kwargs)
-    elif resnet_name == 'CamALResNet':
+    if resnet_name == 'CamALResNet':
         inst = CamALResNet(kernel_size=kernel_size, **kwargs)
     else:
         raise ValueError('ResNet name {} unknown'.format(resnet_name))
@@ -145,7 +124,7 @@ def get_resnet_layers(resnet_name, resnet_inst):
     return last_conv_layer, fc_layer_name
 
 
-def nilm_model_inference(param_training_global, 
+def nilm_model_inference(expes_config, 
                          path, 
                          model, dt_params,
                          test_dataset,
@@ -160,22 +139,22 @@ def nilm_model_inference(param_training_global,
                                     criterion=nn.BCELoss(),
                                     f_metrics=NILMmetrics(),
                                     training_in_model=dt_params['training_in_model'],
-                                    consumption_pred=param_training_global['consumption_pred'], apply_sigmoid=dt_params['apply_sigmoid'],
+                                    consumption_pred=expes_config['consumption_pred'], apply_sigmoid=dt_params['apply_sigmoid'],
                                     patience_es=dt_params['p_es'], patience_rlr=dt_params['p_rlr'],
                                     n_warmup_epochs=dt_params['n_warmup_epochs'],
                                     verbose=True, plotloss=False, 
                                     save_fig=False, path_fig=None,
-                                    device=param_training_global['device'], all_gpu=param_training_global['all_gpu'],
+                                    device=expes_config['device'], all_gpu=expes_config['all_gpu'],
                                     save_checkpoint=True, path_checkpoint=path)
 
-    model_trainer.evaluate(test_loader,  scaler=param_training_global['scaler'], 
-                           appliance_mean_on_power=param_training_global['appliance_mean_on_power'])
+    model_trainer.evaluate(test_loader,  scaler=expes_config['scaler'], 
+                           appliance_mean_on_power=expes_config['appliance_mean_on_power'])
 
     if compress_and_save_space:
         # Attention, model logs compressed! -> file end with ".xz" not ".pt"
         model_trainer.compress()
 
-    if not param_training_global['save_model_weights']:
+    if not expes_config['save_model_weights']:
         model_trainer.delete()
         print('Model log deleted.')
     elif 'FCN' in path:
@@ -189,13 +168,12 @@ def nilm_model_inference(param_training_global,
     return metrics
 
 
-def nilm_model_training(param_training_global, 
+def nilm_model_training(expes_config, 
                         path, 
                         model, dt_params,
                         train_dataset, 
                         valid_dataset, 
                         test_dataset,
-                        pos_weight=1,
                         compress_and_save_space=True):
         
 
@@ -203,14 +181,8 @@ def nilm_model_training(param_training_global,
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=1, shuffle=False)
     test_loader  = torch.utils.data.DataLoader(test_dataset,  batch_size=1, shuffle=False)
 
-    if not param_training_global['consumption_pred']:
-        if param_training_global['balance_class_nilm']:
-            if dt_params['model_name']=='TPNILM' or dt_params['model_name']=='TransNILM':
-                criterion = nn.BCEWithLogitsLoss(pos_weight=torch.ones([480]).to(param_training_global['device'])*pos_weight)
-            else:
-                criterion = nn.BCEWithLogitsLoss(pos_weight=torch.ones([param_training_global['window_size']]).to(param_training_global['device'])*pos_weight)
-        else:
-            criterion = nn.BCEWithLogitsLoss()
+    if not expes_config['consumption_pred']:
+        criterion = nn.BCEWithLogitsLoss()
     else:
         criterion = nn.MSELoss()
 
@@ -220,25 +192,25 @@ def nilm_model_training(param_training_global,
                                     criterion=criterion,
                                     f_metrics=NILMmetrics(),
                                     training_in_model=dt_params['training_in_model'],
-                                    consumption_pred=param_training_global['consumption_pred'], apply_sigmoid=dt_params['apply_sigmoid'],
+                                    consumption_pred=expes_config['consumption_pred'], apply_sigmoid=dt_params['apply_sigmoid'],
                                     patience_es=dt_params['p_es'], patience_rlr=dt_params['p_rlr'],
                                     n_warmup_epochs=dt_params['n_warmup_epochs'],
                                     verbose=True, plotloss=False, 
                                     save_fig=False, path_fig=None,
-                                    device=param_training_global['device'], all_gpu=param_training_global['all_gpu'],
+                                    device=expes_config['device'], all_gpu=expes_config['all_gpu'],
                                     save_checkpoint=True, path_checkpoint=path)
 
 
     model_trainer.train(dt_params['epochs'])
     model_trainer.restore_best_weights()
-    model_trainer.evaluate(test_loader,  scaler=param_training_global['scaler'], 
-                           appliance_mean_on_power=param_training_global['appliance_mean_on_power'])
+    model_trainer.evaluate(test_loader,  scaler=expes_config['scaler'], 
+                           appliance_mean_on_power=expes_config['appliance_mean_on_power'])
 
     if compress_and_save_space:
         # Attention, model logs compressed! -> file end with ".xz" not ".pt"
         model_trainer.compress()
 
-    if not param_training_global['save_model_weights']:
+    if not expes_config['save_model_weights']:
         model_trainer.delete()
         print('Model log deleted.')
     elif 'FCN' in path:
@@ -253,7 +225,7 @@ def nilm_model_training(param_training_global,
     return metrics
 
 
-def train_crnnweak_possession(param_training_global,
+def train_crnnweak_possession(expes_config,
                               path,
                               train_dataset,
                               valid_dataset,
@@ -262,7 +234,7 @@ def train_crnnweak_possession(param_training_global,
                               compress_and_save_space=False):
     """
     Inputs:
-    - param_training_global: [dict] with expes parameters
+    - expes_config: [dict] with expes parameters
     - path: [string] path to save ResNets clf instances
     - train_dataset: [tuple] such as (X_train, y_train)
     - valid_dataset: [tuple] such as (X_valid, y_valid)
@@ -333,7 +305,7 @@ def train_crnnweak_possession(param_training_global,
     return dict_results, crnn_instance, dt_params
 
 
-def train_resnet_ensemble(param_training_global,
+def train_resnet_ensemble(expes_config,
                           path,
                           train_dataset,
                           valid_dataset,
@@ -344,7 +316,7 @@ def train_resnet_ensemble(param_training_global,
                           compress_and_save_space=True):
     """
     Inputs:
-    - param_training_global: [dict] with expes parameters
+    - expes_config: [dict] with expes parameters
     - path: [string] path to save ResNets clf instances
     - train_dataset: [tuple] such as (X_train, y_train)
     - valid_dataset: [tuple] such as (X_valid, y_valid)
@@ -354,7 +326,7 @@ def train_resnet_ensemble(param_training_global,
     - dict_ens_results: [dict] with all infos (best models, loss, metrics)
     """
 
-    dt_params = {'lr': 1e-4 if 'LN' in param_training_global['resnet_name'] else 1e-3, 'wd': 0, 'batch_size': 128, 'epochs': 50, 'p_es': 5, 'p_rlr': 3, 'n_warmup_epochs': 1}
+    dt_params = {'lr': 1e-4 if 'LN' in expes_config['resnet_name'] else 1e-3, 'wd': 0, 'batch_size': 128, 'epochs': 50, 'p_es': 5, 'p_rlr': 3, 'n_warmup_epochs': 1}
 
     X_train, y_train = train_dataset[0], train_dataset[1]
     X_valid, y_valid = valid_dataset[0], valid_dataset[1]
@@ -380,7 +352,7 @@ def train_resnet_ensemble(param_training_global,
     for kernel_size in kernel_size_list:
         for i in range(n_try_clf):
 
-            resnet_inst = get_resnet_instance(param_training_global['resnet_name'], kernel_size=kernel_size)
+            resnet_inst = get_resnet_instance(expes_config['resnet_name'], kernel_size=kernel_size)
 
             # Dataloader
             train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=dt_params['batch_size'], shuffle=True)
@@ -424,7 +396,7 @@ def train_resnet_ensemble(param_training_global,
     # Sort clf by performance according to test loss score [TODO! add sorting by metric: Acc? F1?]
     heap = [(loss, name) for name, loss in tmp_dict_results.items()]
     heapq.heapify(heap)
-    smallest = heapq.nsmallest(param_training_global['n_best_clf'], heap)
+    smallest = heapq.nsmallest(expes_config['n_best_clf'], heap)
 
     # Get the name of the best clf and select them for final ensemble
     list_best_clf = [name for _, name in smallest]
@@ -493,7 +465,7 @@ def SigmoidAttention(data, soft_label, w_ma=5):
     return np.round(soft_label)
 
 
-def create_soft_label(param_training_global,
+def create_soft_label(expes_config,
                       path_ensemble_clf,
                       data,
                       y=None,
@@ -514,18 +486,18 @@ def create_soft_label(param_training_global,
 
     # Loop on BestResNets 
     for resnet_name in list_best_resnets:
-        resnet_inst = get_resnet_instance(param_training_global['resnet_name'], dict_results[resnet_name]['kernel_size'])
-        resnet_inst.to(param_training_global['device'])
+        resnet_inst = get_resnet_instance(expes_config['resnet_name'], dict_results[resnet_name]['kernel_size'])
+        resnet_inst.to(expes_config['device'])
 
         if os.path.exists(f'{path_ensemble_clf}{resnet_name}.xz'):
             path_model = f'{path_ensemble_clf}{resnet_name}.xz'
             with lzma.open(path_model, 'rb') as file:
                 decompressed_file = file.read()
-            log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(param_training_global['device']))
+            log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(expes_config['device']))
             del decompressed_file
         elif os.path.exists(f'{path_ensemble_clf}{resnet_name}.pt'):
             path_model = f'{path_ensemble_clf}{resnet_name}.pt'
-            log = torch.load(path_model, map_location=torch.device(param_training_global['device']))
+            log = torch.load(path_model, map_location=torch.device(expes_config['device']))
         else:
             raise ValueError(f'Provide folders {path_ensemble_clf} does not contain {resnet_name} clf.')
 
@@ -533,11 +505,11 @@ def create_soft_label(param_training_global,
         resnet_inst.eval()
 
         # Get first the per window prediction labels using large batch
-        if (param_training_global['device']!='cpu') and (y is None):
-            batch_size = param_training_global['batch_inference'] if 'batch_inference' in param_training_global else 128
-            y = get_window_labels(resnet_inst, data, batch_size=batch_size, device=param_training_global['device'])
+        if (expes_config['device']!='cpu') and (y is None):
+            batch_size = expes_config['batch_inference'] if 'batch_inference' in expes_config else 128
+            y = get_window_labels(resnet_inst, data, batch_size=batch_size, device=expes_config['device'])
 
-        last_conv_layer, fc_layer_name = get_resnet_layers(param_training_global['resnet_name'], resnet_inst)
+        last_conv_layer, fc_layer_name = get_resnet_layers(expes_config['resnet_name'], resnet_inst)
 
         for idx in range(len(data)): 
             # Use provide window label to speed up (by not computing the CAM)
@@ -545,7 +517,7 @@ def create_soft_label(param_training_global,
                 if y[idx]<1:
                     continue
 
-            CAM_builder = CAM(model=resnet_inst, device=param_training_global['device'], 
+            CAM_builder = CAM(model=resnet_inst, device=expes_config['device'], 
                               last_conv_layer=last_conv_layer, fc_layer_name=fc_layer_name)
             
             cam, y_pred, proba   = CAM_builder.run(instance=data[idx], returned_cam_for_label=1)
@@ -588,7 +560,7 @@ def create_soft_label(param_training_global,
         return soft_label
 
 
-# def create_soft_label_old(param_training_global,
+# def create_soft_label_old(expes_config,
 #                           path_ensemble_clf,
 #                           data,
 #                           y=None):
@@ -615,26 +587,26 @@ def create_soft_label(param_training_global,
 
 #             # Loop on BestResNets 
 #             for resnet_name in list_best_resnets:
-#                 resnet_inst = get_resnet_instance(param_training_global['resnet_name'], dict_results[resnet_name]['kernel_size'])
-#                 resnet_inst.to(param_training_global['device'])
+#                 resnet_inst = get_resnet_instance(expes_config['resnet_name'], dict_results[resnet_name]['kernel_size'])
+#                 resnet_inst.to(expes_config['device'])
 
 #                 if os.path.exists(f'{path_ensemble_clf}{resnet_name}.xz'):
 #                     path_model = f'{path_ensemble_clf}{resnet_name}.xz'
 #                     with lzma.open(path_model, 'rb') as file:
 #                         decompressed_file = file.read()
-#                     log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(param_training_global['device']))
+#                     log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(expes_config['device']))
 #                     del decompressed_file
 #                 elif os.path.exists(f'{path_ensemble_clf}{resnet_name}.pt'):
 #                     path_model = f'{path_ensemble_clf}{resnet_name}.pt'
-#                     log = torch.load(path_model, map_location=torch.device(param_training_global['device']))
+#                     log = torch.load(path_model, map_location=torch.device(expes_config['device']))
 #                 else:
 #                     raise ValueError(f'Provide folders {path_ensemble_clf} does not contain {resnet_name} clf.')
 
 #                 resnet_inst.load_state_dict(log['model_state_dict'])
 #                 resnet_inst.eval()
-#                 last_conv_layer, fc_layer_name = get_resnet_layers(param_training_global['resnet_name'], resnet_inst)
+#                 last_conv_layer, fc_layer_name = get_resnet_layers(expes_config['resnet_name'], resnet_inst)
 
-#                 CAM_builder = CAM(model=resnet_inst, device=param_training_global['device'], 
+#                 CAM_builder = CAM(model=resnet_inst, device=expes_config['device'], 
 #                                   last_conv_layer=last_conv_layer, fc_layer_name=fc_layer_name)
 #                 cam, y_pred, proba = CAM_builder.run(instance=current_win, returned_cam_for_label=1)
 #                 instance_prob_detect += proba[1]
@@ -689,14 +661,14 @@ def create_soft_label(param_training_global,
 #     return soft_label
 
 
-def evaluate_soft_label(param_training_global,
+def evaluate_soft_label(expes_config,
                         path_ensemble_clf,
                         data_test,
                         f_metrics=NILMmetrics(),
                         clf_metrics=Classifmetrics()):
     
     # Create soft label
-    soft_label, prob_detect = create_soft_label(param_training_global,
+    soft_label, prob_detect = create_soft_label(expes_config,
                                                 path_ensemble_clf,
                                                 data_test[:, 0, 0, :],
                                                 return_prob=True)
@@ -705,14 +677,14 @@ def evaluate_soft_label(param_training_global,
     y_state     = data_test[:, 1, 1, :].ravel().astype(dtype=int)
     y_hat_state = soft_label.ravel().astype(dtype=int)
 
-    if param_training_global['appliance_mean_on_power'] is not None:
+    if expes_config['appliance_mean_on_power'] is not None:
         # Get true appliance power
-        data_test_rescale = param_training_global['scaler'].inverse_transform(data_test)
+        data_test_rescale = expes_config['scaler'].inverse_transform(data_test)
         tmp_agg = data_test_rescale[:, 0, 0, :].ravel()
         y       = data_test_rescale[:, 1, 0, :].ravel()
 
         # Create soft label power value according to mean appliance power param
-        y_hat = y_hat_state * param_training_global['appliance_mean_on_power']
+        y_hat = y_hat_state * expes_config['appliance_mean_on_power']
         # Ensure that app consumption doesn't exceed aggregate
         y_hat[y_hat>tmp_agg] = tmp_agg[y_hat>tmp_agg]
         del data_test_rescale

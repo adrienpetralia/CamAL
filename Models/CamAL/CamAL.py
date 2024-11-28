@@ -19,21 +19,22 @@ from torch.utils.data import DataLoader
 class CamAL(object):
     def __init__(self, 
                  path,
-                 kernel_sizes,
-                 n_best_clf,
-                 n_try_clf,
+                 device='cpu',
+                 kernel_sizes=[5, 7, 9, 15, 25],
+                 n_best_clf=5,
+                 n_try_clf=3,
+                 batch_inference=128,
                  timestamp_metrics=NILMmetrics(),
                  clf_metrics=Classifmetrics()):
 
-        self.path = path
+        self.path   = path
+        self.device = device
 
         self.kernel_sizes = kernel_sizes
         self.n_best_clf   = n_best_clf
         self.n_try_clf    = n_try_clf
 
-        self.batch_inference = 128
-
-
+        self.batch_inference   = batch_inference
         self.timestamp_metrics = timestamp_metrics
         self.clf_metrics       = clf_metrics
 

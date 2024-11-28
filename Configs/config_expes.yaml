@@ -1,0 +1,18 @@
+window_size: 510
+window_size_test: 510
+List_Model_Sota_Expes:
+  - BiGRU
+  - UNET_NILM
+  - TPNILM
+  - TransNILM
+  - CRNNStrong
+  - CRNNWeak
+fixed_houses_test: False
+use_kelly_status: False
+save_model_weights: False
+sampling_rate: 1min
+consumption_pred: False
+power_scaling: 1000
+appliance_scaling: SameAsPower
+device: cuda
+all_gpu: False

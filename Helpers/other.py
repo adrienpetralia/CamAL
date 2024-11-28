@@ -1,4 +1,5 @@
 import os
+import yaml
 import numpy as np
 import pandas as pd
 import torch
@@ -40,6 +41,11 @@ def create_dir(path):
 def check_file_exist(path):
     return os.path.isfile(path)
 
+def load_config(config_file_path):
+    with open(config_file_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
 def rename_files(root_dir):
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
@@ -69,12 +75,6 @@ def threshold_cam(vector, threshold=0.5):
     output[vector >= threshold] = 1
 
     return output
-
-def sigmoid(z):
-    return 2 * (1.0/(1.0 + np.exp(-z))) -1
-
-def moving_average(x, w):
-    return np.convolve(x, np.ones(w), 'same') / w
 
 
 

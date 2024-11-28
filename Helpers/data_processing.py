@@ -1,6 +1,5 @@
 import os
 import torch
-import pickle
 import numpy as np
 import pandas as pd
 import warnings
@@ -36,7 +35,7 @@ def NILMdataset_to_Clf(data, st_date=None, return_df=True):
 
 
 # ========================================= Random Under sampler ========================================= #
-def RandomUnderSampler_(X, y=None, sampling_strategy='auto', seed=0, nb_label=1):
+def UnderSampler(X, y=None, sampling_strategy='auto', seed=0, nb_label=1):
     np.random.seed(seed)
     
     if isinstance(X, pd.core.frame.DataFrame):
