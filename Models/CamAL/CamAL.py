@@ -348,9 +348,10 @@ class CamAL(object):
 
         return y_hat.astype(np.int8)
     
+
     def _sigmoid(self, z):
         return 2 * (1.0/(1.0 + np.exp(-z))) -1
 
+
     def _moving_average(self, x, w):
         return np.convolve(x, np.ones(w), 'same') / w
-    

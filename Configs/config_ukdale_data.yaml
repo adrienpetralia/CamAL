@@ -1,0 +1,15 @@
+Dishwasher:
+  app_ukdale_dataset_name: dishwasher
+  houses_with_app: [1, 2, 5]
+  houses_without_app: [3, 4]
+  appliance_mean_on_power: 800
+Kettle:
+  app_ukdale_dataset_name: kettle
+  houses_with_app: [1, 2, 3, 5]
+  houses_without_app: []
+  appliance_mean_on_power: 2000
+Microwave:
+  app_ukdale_dataset_name: microwave
+  houses_with_app: [1, 2, 5]
+  houses_without_app: [3]
+  appliance_mean_on_power: 1000

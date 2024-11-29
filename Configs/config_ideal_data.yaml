@@ -1,0 +1,12 @@
+WashingMachine:
+  app_ideal_dataset_name: washingmachine
+  appliance_mean_on_power: 500
+  threshold_app_activation: 300
+Dishwasher:
+  app_ideal_dataset_name: dishwasher
+  appliance_mean_on_power: 800
+  threshold_app_activation: 300
+Shower:
+  app_ideal_dataset_name: electricshower
+  appliance_mean_on_power: 8000
+  threshold_app_activation: 2000
