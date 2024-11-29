@@ -14,30 +14,30 @@ def get_houses_indices(expes_config, seed):
     np.random.seed(seed=seed)
 
     if expes_config['fixed_houses_test']:
-        if expes_config['app']=='dishwasher':
+        if expes_config['appliance']=='dishwasher':
             id_train = [1, 3, 4]
             id_valid = [5]
             id_test  = [2]
-        elif expes_config['app']=='microwave':
+        elif expes_config['appliance']=='microwave':
             id_train = [1, 3]
             id_valid = [5]
             id_test  = [2]
-        elif expes_config['app']=='kettle':
+        elif expes_config['appliance']=='kettle':
             id_train = [1, 3]
             id_valid = [5]
             id_test  = [2]
-        elif expes_config['app']=='washing_machine':
+        elif expes_config['appliance']=='washing_machine':
             id_train = [1, 3]
             id_valid = [5]
             id_test  = [2]
     else:
-        if expes_config['app']=='dishwasher':
+        if expes_config['appliance']=='dishwasher':
             id_train = [1, 3, 4]
-        elif expes_config['app']=='microwave':
+        elif expes_config['appliance']=='microwave':
             id_train = [1, 3]
-        elif expes_config['app']=='kettle':
+        elif expes_config['appliance']=='kettle':
             id_train = [1, 3]
-        elif expes_config['app']=='washing_machine':
+        elif expes_config['appliance']=='washing_machine':
             id_train = [1, 3]
         
         permute_ind_valid_test = list(np.random.permutation(np.array([2, 5])))

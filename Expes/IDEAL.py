@@ -462,8 +462,9 @@ if __name__ == "__main__":
     print(expes_config)
     
     expes_config['nb_data_for_training'] = nb_data_for_training if nb_data_for_training < 1 else int(nb_data_for_training)
-    expes_config['appliance'] = appliance
-    expes_config['appliance_mean_on_power'] = dataset_config[appliance]['appliance_mean_on_power']
+    expes_config['appliance'] = dataset_config[appliance]['app_ideal_dataset_name']
+    expes_config['appliance_mean_on_power']  = dataset_config[appliance]['appliance_mean_on_power']
+    expes_config['threshold_app_activation'] = dataset_config[appliance]['threshold_app_activation']
 
     if expes=='CamALExpes':
         print('CamAL Expes')
