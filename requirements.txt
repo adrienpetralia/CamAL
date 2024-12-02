@@ -1,5 +1,13 @@
-numpy==1.26.4
+numpy
 pandas
-matplotlib
 plotly
+PyYAML
+scikit-learn
+scipy
+seaborn 
+pickle
+imbalanced-learn
 torch==1.12.1
+pyarrow==13.0.0
+numba==0.58.1
+einops==0.6.1
