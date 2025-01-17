@@ -28,6 +28,16 @@ Overall our repo contains the following elements:
 - [Helpers](https://github.com/adrienpetralia/CamAL/tree/main/Helpers): Preprocessing and Postprocessing functions
 - [Models](https://github.com/adrienpetralia/CamAL/tree/main/Models): CamAL code and other state of the art implementations
 
+## Get ready
+
+```bash
+pip install uv
+git clone https://github.com/adrienpetralia/CamAL.git
+cd CamAL
+uv sync
+```
+
+
 ## CamAL in Short
 
 our proposed approach, CamAL, enables the detection and localization of appliance patterns in aggregated consumption series.
