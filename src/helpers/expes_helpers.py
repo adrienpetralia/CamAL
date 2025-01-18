@@ -1,24 +1,29 @@
-import os, sys, lzma, io
-import numpy as np
-import pandas as pd
+import os
 import pickle
 import heapq
 import time
+import torch
 
-from Helpers.class_activation_map import *
-from Helpers.data_processing import *
-from Helpers.torch_dataset import *
-from Helpers.torch_trainer import *
-from Helpers.other import *
+import numpy as np
+import torch.nn as nn
 
-from Models.Classifiers.CamALResNet import CamALResNet
+from src.helpers.data_processing import UnderSampler
+from src.helpers.torch_dataset import NILMDataset, TSDataset
+from src.helpers.torch_trainer import (
+    SeqToSeqTrainer,
+    ClassifTrainerSigmoid,
+    BasedClassifTrainer
+)
+from src.helpers.other import NILMmetrics
 
-from Models.Sota.BiGRU import BiGRU
-from Models.Sota.UNET_NILM import UNetNiLM
-from Models.Sota.Zhang_SeqtoSeq import Zhang_SeqtoSeq
-from Models.Sota.TPNILM import TPNILM
-from Models.Sota.TransNILM import TransNILM
-from Models.Sota.CRNN import SCRNN, CRNN
+from src.models.camal.classifiers.camal_resnet import CamALResNet
+
+from src.models.nilm_models.bigru import BiGRU
+from src.models.nilm_models.unet_nilm import UNetNiLM
+from src.models.nilm_models.fcn_seqtoseq import Zhang_SeqtoSeq
+from src.models.nilm_models.tpnilm import TPNILM
+from src.models.nilm_models.transnilm import TransNILM
+from src.models.nilm_models.crnn import SCRNN, CRNN
 
 from torch.utils.data import DataLoader
 
@@ -250,7 +255,7 @@ def train_crnnweak_possession(expes_config,
 
     # Balance data class for training
     if balance_class:
-        X_train, y_train = RandomUnderSampler_(X_train, y_train, sampling_strategy="auto", seed=0)
+        X_train, y_train = UnderSampler(X_train, y_train, sampling_strategy="auto", seed=0)
     
     # Create dataset
     train_dataset = TSDataset(X_train, y_train)
@@ -334,7 +339,7 @@ def train_resnet_ensemble(expes_config,
 
     # Balance data class for training
     if balance_class:
-        X_train, y_train = RandomUnderSampler_(X_train, y_train, sampling_strategy="auto", seed=0)
+        X_train, y_train = UnderSampler(X_train, y_train, sampling_strategy="auto", seed=0)
     
     # Create dataset
     train_dataset = TSDataset(X_train, y_train)
@@ -452,251 +457,3 @@ def get_window_labels(model, data, batch_size, device='cuda'):
             y_hat = np.concatenate((y_hat, predicted.detach().cpu().numpy().flatten())) if y_hat.size else predicted.detach().cpu().numpy().flatten()
 
     return y_hat.astype(np.int8)
-    
-
-def SigmoidAttention(data, soft_label, w_ma=5):
-    # Apply moving average
-    soft_label = np.apply_along_axis(lambda x: moving_average(x, w=w_ma), axis=1, arr=soft_label)
-
-    # Apply sigmoid on the product of averaged soft labels
-    soft_label = sigmoid(soft_label * data)
-
-    # Thresholding to obtain binary labels
-    return np.round(soft_label)
-
-
-def create_soft_label(expes_config,
-                      path_ensemble_clf,
-                      data,
-                      y=None,
-                      return_prob=False):
-
-    assert len(data.shape)<=2, f'dat input need to be 2D numpy array for create_soft_label, got a {data.shape}D array.'
-
-    if len(data.shape)==1:
-        data = np.expand_dims(data, axis=0)
-
-    with open(f'{path_ensemble_clf}LogResNetsEnsemble.pkl', 'rb') as handle:
-        dict_results = pickle.load(handle)
-
-    list_best_resnets = dict_results['ListBestResNets']
-
-    soft_label  = np.zeros_like(data)
-    prob_detect = np.zeros((len(data), 1))
-
-    # Loop on BestResNets 
-    for resnet_name in list_best_resnets:
-        resnet_inst = get_resnet_instance(expes_config['resnet_name'], dict_results[resnet_name]['kernel_size'])
-        resnet_inst.to(expes_config['device'])
-
-        if os.path.exists(f'{path_ensemble_clf}{resnet_name}.xz'):
-            path_model = f'{path_ensemble_clf}{resnet_name}.xz'
-            with lzma.open(path_model, 'rb') as file:
-                decompressed_file = file.read()
-            log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(expes_config['device']))
-            del decompressed_file
-        elif os.path.exists(f'{path_ensemble_clf}{resnet_name}.pt'):
-            path_model = f'{path_ensemble_clf}{resnet_name}.pt'
-            log = torch.load(path_model, map_location=torch.device(expes_config['device']))
-        else:
-            raise ValueError(f'Provide folders {path_ensemble_clf} does not contain {resnet_name} clf.')
-
-        resnet_inst.load_state_dict(log['model_state_dict'])
-        resnet_inst.eval()
-
-        # Get first the per window prediction labels using large batch
-        if (expes_config['device']!='cpu') and (y is None):
-            batch_size = expes_config['batch_inference'] if 'batch_inference' in expes_config else 128
-            y = get_window_labels(resnet_inst, data, batch_size=batch_size, device=expes_config['device'])
-
-        last_conv_layer, fc_layer_name = get_resnet_layers(expes_config['resnet_name'], resnet_inst)
-
-        for idx in range(len(data)): 
-            # Use provide window label to speed up (by not computing the CAM)
-            if y is not None:
-                if y[idx]<1:
-                    continue
-
-            CAM_builder = CAM(model=resnet_inst, device=expes_config['device'], 
-                              last_conv_layer=last_conv_layer, fc_layer_name=fc_layer_name)
-            
-            cam, y_pred, proba   = CAM_builder.run(instance=data[idx], returned_cam_for_label=1)
-            prob_detect[idx][0] += proba[1]
-
-            # If y is not None, ground true is used
-            # if y is not None:
-            #     # Clip CAM and MaxNormalization (between 0 and 1)
-            #     clip_cam = np.clip(cam, a_min=0, a_max=None)
-            #     clip_cam = clip_cam / clip_cam.max()
-                
-            # Or if app detected in this window
-            if y_pred>0:
-                # Clip CAM and MaxNormalization (between 0 and 1)
-                clip_cam = np.clip(cam, a_min=0, a_max=None)
-                clip_cam = np.nan_to_num(clip_cam.astype(np.float32), nan=0.0, neginf=0.0, posinf=0.0)
-
-                if clip_cam.max()>0:
-                    clip_cam = clip_cam / clip_cam.max()
-                else:
-                    clip_cam = np.zeros_like(clip_cam)
-
-                soft_label[idx] += clip_cam.ravel()
-
-        del resnet_inst
-        
-    # Majority voting: if the ensemble probability of detection < 0.5 appliance not detected in wins, soft label set to 0
-    prob_detect = prob_detect / len(list_best_resnets)
-    soft_label  = soft_label / len(list_best_resnets)
-    
-    # Set window soft label to 0 if the ensemble not detect an appliance in a window
-    soft_label  = soft_label * np.round(prob_detect)
-
-    # Sigmoid-Attention Module
-    soft_label  = SigmoidAttention(data, soft_label, w_ma=5) # TODO: improve the hardcoding of Moving Average parameter
-
-    if return_prob:
-        return soft_label, prob_detect
-    else:
-        return soft_label
-
-
-# def create_soft_label_old(expes_config,
-#                           path_ensemble_clf,
-#                           data,
-#                           y=None):
-
-#     assert len(data.shape)==2, f'Provide 2D numpy array for create_soft_label, got a {data.shape}D array.'
-
-#     with open(f'{path_ensemble_clf}LogResNetsEnsemble.pkl', 'rb') as handle:
-#         dict_results = pickle.load(handle)
-
-#     list_best_resnets = dict_results['ListBestResNets']
-
-#     soft_label = np.zeros_like(data)
-
-#     for idx in range(len(data)):
-#         current_win         = data[idx]
-#         instance_soft_label = np.zeros_like(data[idx])
-
-#         # Use true weak label if y provide
-#         if y is not None:
-#             if y[idx]<1:
-#                 continue
-#         else:
-#             instance_prob_detect = 0
-
-#             # Loop on BestResNets 
-#             for resnet_name in list_best_resnets:
-#                 resnet_inst = get_resnet_instance(expes_config['resnet_name'], dict_results[resnet_name]['kernel_size'])
-#                 resnet_inst.to(expes_config['device'])
-
-#                 if os.path.exists(f'{path_ensemble_clf}{resnet_name}.xz'):
-#                     path_model = f'{path_ensemble_clf}{resnet_name}.xz'
-#                     with lzma.open(path_model, 'rb') as file:
-#                         decompressed_file = file.read()
-#                     log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(expes_config['device']))
-#                     del decompressed_file
-#                 elif os.path.exists(f'{path_ensemble_clf}{resnet_name}.pt'):
-#                     path_model = f'{path_ensemble_clf}{resnet_name}.pt'
-#                     log = torch.load(path_model, map_location=torch.device(expes_config['device']))
-#                 else:
-#                     raise ValueError(f'Provide folders {path_ensemble_clf} does not contain {resnet_name} clf.')
-
-#                 resnet_inst.load_state_dict(log['model_state_dict'])
-#                 resnet_inst.eval()
-#                 last_conv_layer, fc_layer_name = get_resnet_layers(expes_config['resnet_name'], resnet_inst)
-
-#                 CAM_builder = CAM(model=resnet_inst, device=expes_config['device'], 
-#                                   last_conv_layer=last_conv_layer, fc_layer_name=fc_layer_name)
-#                 cam, y_pred, proba = CAM_builder.run(instance=current_win, returned_cam_for_label=1)
-#                 instance_prob_detect += proba[1]
-
-#                 # If y is not None, we use ground true 
-#                 if y is not None:
-#                     # Clip CAM and MaxNormalization (between 0 and 1)
-#                     clip_cam = np.clip(cam, a_min=0, a_max=None)
-#                     clip_cam = clip_cam / clip_cam.max()
-                    
-#                 # Or if app detected in this window
-#                 elif y_pred>0:
-#                     # Clip CAM and MaxNormalization (between 0 and 1)
-#                     clip_cam = np.clip(cam, a_min=0, a_max=None)
-#                     clip_cam = np.nan_to_num(clip_cam.astype(np.float32), nan=0.0, neginf=0.0, posinf=0.0)
-
-#                     if clip_cam.max()>0:
-#                         clip_cam = clip_cam / clip_cam.max()
-#                     else:
-#                         clip_cam = np.zeros_like(clip_cam)
-
-#                     instance_soft_label = instance_soft_label + clip_cam.ravel()
-
-#                 del resnet_inst
-        
-#         # Majority voting: if appliance not detected in current win, soft label set to 0
-#         # if (y is not None) or ((instance_prob_detect / len(list_best_resnets)) >= 0.5):
-#         if (instance_prob_detect / len(list_best_resnets)) >= 0.5:
-#             instance_soft_label = instance_soft_label / len(list_best_resnets)
-#         else: 
-#             instance_soft_label = np.zeros_like(data[idx])
-
-#         # # Thresholding if not using probabilities as labels
-#         # if threshold is not None:
-#         #   instance_soft_label = threshold_cam(instance_soft_label, threshold=0.5)
-
-#         # If app detected, compute Sigmoid Attention with current win and thresshold the results
-#         if (instance_soft_label > 0).any(): 
-#             # Small moving average 
-#             instance_soft_label = moving_average(instance_soft_label, w=5) # TODO: improve the hardcoding of Moving Average w parameter
-
-#             # Sigmoid-Attention between input aggregate power and computed avg. CAM score
-#             instance_soft_label = sigmoid(instance_soft_label * current_win)
-
-#             # Thresholding to ensure to obtained binary labels
-#             # instance_soft_label[instance_soft_label >= 0.5] = 1
-#             # instance_soft_label[instance_soft_label < 0.5]  = 0 
-
-#         # Thresholding to ensure to obtained binary labels
-#         soft_label[idx, :] = np.round(instance_soft_label)
-
-#     return soft_label
-
-
-def evaluate_soft_label(expes_config,
-                        path_ensemble_clf,
-                        data_test,
-                        f_metrics=NILMmetrics(),
-                        clf_metrics=Classifmetrics()):
-    
-    # Create soft label
-    soft_label, prob_detect = create_soft_label(expes_config,
-                                                path_ensemble_clf,
-                                                data_test[:, 0, 0, :],
-                                                return_prob=True)
-
-    # Get y_state and y_hat_state
-    y_state     = data_test[:, 1, 1, :].ravel().astype(dtype=int)
-    y_hat_state = soft_label.ravel().astype(dtype=int)
-
-    if expes_config['appliance_mean_on_power'] is not None:
-        # Get true appliance power
-        data_test_rescale = expes_config['scaler'].inverse_transform(data_test)
-        tmp_agg = data_test_rescale[:, 0, 0, :].ravel()
-        y       = data_test_rescale[:, 1, 0, :].ravel()
-
-        # Create soft label power value according to mean appliance power param
-        y_hat = y_hat_state * expes_config['appliance_mean_on_power']
-        # Ensure that app consumption doesn't exceed aggregate
-        y_hat[y_hat>tmp_agg] = tmp_agg[y_hat>tmp_agg]
-        del data_test_rescale
-        del tmp_agg
-
-        # Compute metric (NILM reg + classif)
-        metric_softlabel = f_metrics(y, y_hat, y_state, y_hat_state)
-    else: 
-        # Compute metric (NILM classif)
-        metric_softlabel = f_metrics(y=None, y_hat=None, y_state=y_state, y_hat_state=y_hat_state)
-
-    _, y_clf_true = NILMdataset_to_Clf(data_test)
-    metric_classif = clf_metrics(y=y_clf_true.ravel(), y_hat=prob_detect.ravel())
-
-    return metric_softlabel, metric_classif

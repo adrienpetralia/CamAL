@@ -6,12 +6,12 @@ import time
 import warnings
 import torch
 
-from Helpers.class_activation_map import CAM
-from Helpers.data_processing import NILMdataset_to_Clf, UnderSampler
-from Helpers.torch_dataset import SimpleDataset, TSDataset
-from Helpers.torch_trainer import BasedClassifTrainer
-from Helpers.other import NILMmetrics, Classifmetrics
-from Models.Classifiers.CamALResNet import CamALResNet
+from src.helpers.class_activation_map import CAM
+from src.helpers.data_processing import NILMdataset_to_Clf, UnderSampler
+from src.helpers.torch_dataset import SimpleDataset, TSDataset
+from src.helpers.torch_trainer import BasedClassifTrainer
+from src.helpers.other import NILMmetrics, Classifmetrics
+from src.models.camal.classifiers.camal_resnet import CamALResNet
 
 
 from torch.utils.data import DataLoader

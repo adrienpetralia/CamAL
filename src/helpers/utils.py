@@ -2,6 +2,17 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import (
+    accuracy_score, 
+    balanced_accuracy_score, 
+    f1_score, precision_score, 
+    recall_score, 
+    roc_auc_score, 
+    average_precision_score, 
+    mean_absolute_error, 
+    mean_squared_error
+)
+
 def apply_graphics_setting(ax=None, legend_font_size=20, label_fontsize=20):
 
     if ax is None:
@@ -47,7 +58,7 @@ def fmin(val):
 
 
 def rename_files(root_dir):
-    for dirpath, dirnames, filenames in os.walk(root_dir):
+    for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
             # Check if the filename ends with '.pt.pt'
             if filename.endswith('.pt.pt'):
@@ -64,8 +75,6 @@ def rename_files(root_dir):
 
 
 # ========================================= Metrics ========================================= #
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, precision_score, recall_score, roc_auc_score, average_precision_score, mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
-
 class Classifmetrics():
     """
     Basics metrics for classification

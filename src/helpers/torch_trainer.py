@@ -9,9 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from torch.autograd import Variable
-
-from Helpers.other import Classifmetrics, NILMmetrics
+from src.helpers.other import Classifmetrics, NILMmetrics
     
 
 class BasedClassifTrainer(object):

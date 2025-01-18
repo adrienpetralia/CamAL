@@ -1,13 +1,37 @@
-import os, sys
-import numpy as np
+import os
+import sys
+import warnings
 import pickle
+
+import numpy as np
+import pandas as pd
 
 current_dir = os.getcwd()
 parent_dir  = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Helpers.expes_helpers import *
-from Models.CamAL import CamAL
+from src.helpers.data_processing import IDEAL_DataBuilder
+from src.helpers.data_processing import (
+    split_train_valid_test,
+    split_train_valid_test_pdl,
+    split_train_test_pdl_nilmdataset,
+    nilmdataset_to_clfdataset,
+)
+from src.helpers.expes_helpers import (
+    save_log_results,
+    get_log_results_if_exist,
+    train_crnnweak_possession,
+    get_pytorch_style_dataset,
+    nilm_model_inference,
+    get_nilm_instance,
+    nilm_model_training
+)
+from src.helpers.other import (
+    create_dir,
+    load_config
+)
+from src.helpers.torch_dataset import NILMscaler
+from src.models.camal.core import CamAL
 
 
 def ideal_camal_expes_possession(expes_config, path, win_weak,seed):
@@ -63,7 +87,7 @@ def ideal_camal_expes_possession(expes_config, path, win_weak,seed):
 
     assert len(st_date.index.unique())>1, 'No houses found with strong label for this appliance.'
 
-    _, _, data_test, st_date_test = Split_train_test_pdl_NILMDataset(data, st_date, nb_house_test=8, seed=seed)
+    _, _, data_test, st_date_test = split_train_test_pdl_nilmdataset(data, st_date, nb_house_test=8, seed=seed)
 
     print('Number of household for this appliance', len(st_date_test.index.unique()))
     print(list(st_date_test.index.unique()))
@@ -152,7 +176,7 @@ def ideal_crnn_expes_possession(expes_config, path, win_weak, seed):
 
     assert len(st_date.index.unique())>1, 'No houses found with strong label for this appliance.'
 
-    _, _, data_test, st_date_test = Split_train_test_pdl_NILMDataset(data, st_date, nb_house_test=8, seed=seed)
+    _, _, data_test, st_date_test = split_train_test_pdl_nilmdataset(data, st_date, nb_house_test=8, seed=seed)
 
     print('Number of household for this appliance', len(st_date_test.index.unique()))
     print(list(st_date_test.index.unique()))
@@ -220,18 +244,18 @@ def camal_expes(expes_config, path, seed):
 
     print('Houses found:', list(st_date.index.unique()))
 
-    data_train, st_date_train, data_test, st_date_test   = Split_train_test_pdl_NILMDataset(data, st_date, nb_house_test=6, seed=seed)
-    data_train, st_date_train, data_valid, st_date_valid = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=2, seed=seed)
+    data_train, st_date_train, data_test, st_date_test   = split_train_test_pdl_nilmdataset(data, st_date, nb_house_test=6, seed=seed)
+    data_train, st_date_train, data_valid, st_date_valid = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=2, seed=seed)
     
     print(f'NB data for training:{nb_data_for_training}')
     tmp_res = {}
 
     if nb_data_for_training!='AllPossible':
         if nb_data_for_training<=1:
-            _, _, data_train, st_date_train   = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=1, seed=seed)
+            _, _, data_train, st_date_train   = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=1, seed=seed)
 
             if nb_data_for_training<1:
-                _, _, data_train, st_date_train = Split_train_test_NILMDataset(data_train, st_date_train, perc_house_test=nb_data_for_training, seed=seed)
+                _, _, data_train, st_date_train = split_train_test_pdl_nilmdataset(data_train, st_date_train, perc_house_test=nb_data_for_training, seed=seed)
                 
         else:
             if nb_data_for_training>len(st_date_train.index.unique()):
@@ -240,7 +264,7 @@ def camal_expes(expes_config, path, seed):
                 #continue
 
             elif nb_data_for_training<len(st_date_train.index.unique()):
-                _, _, data_train, st_date_train   = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=nb_data_for_training, seed=seed)
+                _, _, data_train, st_date_train   = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=nb_data_for_training, seed=seed)
 
             else:
                 print('Same as AllPossible case')
@@ -270,8 +294,8 @@ def camal_expes(expes_config, path, seed):
     tmp_res['nb_houses']      = len(st_date_train.index.unique())
 
     # ========== Create train and test dataset for clf training ============== #
-    train_clf_dataset = NILMdataset_to_Clf(data_train, st_date=st_date_train)
-    test_clf_dataset  = NILMdataset_to_Clf(data_valid, st_date=st_date_valid)
+    train_clf_dataset = nilmdataset_to_clfdataset(data_train, st_date=st_date_train)
+    test_clf_dataset  = nilmdataset_to_clfdataset(data_valid, st_date=st_date_valid)
 
     try:
         X_train, y_train, X_valid, y_valid = split_train_valid_test(train_clf_dataset, test_size=0.2)
@@ -340,15 +364,15 @@ def strong_nilm_expes(expes_config, path, seed):
 
     print('Houses found:', list(st_date.index.unique()))
 
-    data_train, st_date_train, data_test, st_date_test   = Split_train_test_pdl_NILMDataset(data, st_date, nb_house_test=6, seed=seed)
-    data_train, st_date_train, data_valid, st_date_valid = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=2, seed=seed)
+    data_train, st_date_train, data_test, st_date_test   = split_train_test_pdl_nilmdataset(data, st_date, nb_house_test=6, seed=seed)
+    data_train, st_date_train, data_valid, st_date_valid = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=2, seed=seed)
 
     if nb_data_for_training!='AllPossible':
         if nb_data_for_training<=1:
-            _, _, data_train, st_date_train   = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=1, seed=seed)
+            _, _, data_train, st_date_train   = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=1, seed=seed)
 
             if nb_data_for_training<1:
-                _, _, data_train, st_date_train = Split_train_test_NILMDataset(data_train, st_date_train, perc_house_test=nb_data_for_training, seed=seed)
+                _, _, data_train, st_date_train = split_train_test_pdl_nilmdataset(data_train, st_date_train, perc_house_test=nb_data_for_training, seed=seed)
                 
         else:
             if nb_data_for_training>len(st_date_train.index.unique()):
@@ -357,7 +381,7 @@ def strong_nilm_expes(expes_config, path, seed):
                 #continue
 
             elif nb_data_for_training<len(st_date_train.index.unique()):
-                _, _, data_train, st_date_train   = Split_train_test_pdl_NILMDataset(data_train, st_date_train, nb_house_test=nb_data_for_training, seed=seed)
+                _, _, data_train, st_date_train   = split_train_test_pdl_nilmdataset(data_train, st_date_train, nb_house_test=nb_data_for_training, seed=seed)
 
             else:
                 warnings.warn('Same as AllPossible case')
