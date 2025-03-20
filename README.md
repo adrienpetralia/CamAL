@@ -56,7 +56,7 @@ CamAL enables appliance **detection** (has an appliance been used at all?) and *
 ### Appliance Detection vs. Localization
 
 <p align="center">
-<img width="300" src="./assets/problem_def.jpg"/>
+<img width="400" src="./assets/problem_def.jpg"/>
 </p>
 
 - **Appliance Detection (Problem 1):** Determine if an appliance is active within a given period. Only coarse labels are needed (whether the appliance was used at all).
