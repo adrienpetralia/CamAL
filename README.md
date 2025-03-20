@@ -56,7 +56,7 @@ CamAL enables appliance **detection** (has an appliance been used at all?) and *
 ### Appliance Detection vs. Localization
 
 <p align="center">
-<img width="500" src="./assets/CamAL.jpg"/>
+<img width="300" src="./assets/problem_def.jpg"/>
 </p>
 
 - **Appliance Detection (Problem 1):** Determine if an appliance is active within a given period. Only coarse labels are needed (whether the appliance was used at all).
@@ -64,6 +64,10 @@ CamAL enables appliance **detection** (has an appliance been used at all?) and *
 
 
 ### Method Overview
+
+<p align="center">
+<img width="300" src="./assets/CamAL.jpg"/>
+</p>
 
 1. **Detection (ResNets Ensemble):**  
    Multiple ResNet classifiers (each with a different kernel size) predict whether an appliance appears in a time window. Their probabilities are averaged for a final detection score.
