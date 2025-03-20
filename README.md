@@ -3,7 +3,7 @@
 Official codebase implementation for **Few Labels are all you need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series**
 
 <p align="center">
-<img width="600" src="./images/IntroFigure.jpg"/>
+<img width="600" src="./assets/IntroFigure.jpg"/>
 </p>
 
 Improving smart grid system management is crucial in the fight against climate change, and enabling consumers to play an active role in this effort is a significant challenge for electricity suppliers. 
@@ -87,7 +87,7 @@ $$
 where $x(t)$ is the total power consumption measured by the main meter at timestep $t$; $N$ is the total number of appliances connected to the smart meter; and $\epsilon(t)$ is defined as the noise or the measurement error at timestep $t$.
 
 <p align="center">
-<img width="600" src="./images/problem_def.jpg"/>
+<img width="600" src="./assets/problem_def.jpg"/>
 </p>
 
 Practitioners are interested in solving two problems: (i) discovering *if* an appliance has been activating (Appliance detection problem), and (ii) identifying *when* an appliance has been used (Per-Timestamp Appliance Localization Problem). The two problems are formalized as follows:
@@ -138,7 +138,7 @@ As mentioned above, our proposed approach CamAL enables the detection and locali
 CamAL can be decomposed into two parts: (1) an ensemble of deep-learning classifiers that performs the detection and (2) an explainability-based module that localizes the appliance (when detected).
 
 <p align="center">
-<img width="500" src="./images/CamAL.jpg"/>
+<img width="500" src="./assets/CamAL.jpg"/>
 </p>
 
 #### Step 1: CamAL ResNets Ensemble for Problem 1
@@ -148,10 +148,6 @@ A ResNet architecture has been proposed for time series classification in and sh
 The architecture is composed of 3 stacked residual blocks connected by residual connections: this means that the input of a residual block is taken and added to its output. 
 Each residual block comprises 3 convolutional blocks as described in the ConvNet architecture (same kernel size $\{8, 5, 3\}$, but each layer in a block uses the same number of filters).
 The three residual blocks came with respectively $\{64, 128, 128\}$ filters, and, at this end, a global average pooling is performed along the temporal dimension followed by a linear layer and a softmax activation function to perform classification.
-
-<p align="center">
-<img width="500" src="./images/ResNetDetail.jpg"/>
-</p>
 
 We leverage the strong proposed baseline to an ensemble of $N$ networks differing in kernel sizes within the convolutional layers.
 By default, we set $N=5$.
