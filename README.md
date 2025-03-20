@@ -1,26 +1,26 @@
-<h1 align="center">CamAL</h2>
-<h2 align="center">A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series</h2>
+# CamaL
 
-Improving smart grid system management is crucial in the fight against climate change, and enabling consumers to play an active role in this effort is a significant challenge for electricity suppliers. 
-In this regard, millions of smart meters have been deployed worldwide in the last decade, recording the main electricity power consumed in individual households.
-This data produces valuable information that can help them reduce their electricity footprint; nevertheless, the collected signal aggregates the consumption of the different appliances running simultaneously in the house, making it difficult to apprehend.
-Non-Intrusive Load Monitoring (NILM) refers to the challenge of estimating the power consumption, pattern, or on/off state activation of individual appliances using the main smart meter signal.
-Recent methods proposed to tackle this task are based on a fully supervised deep-learning approach that requires both the aggregate signal and the ground truth of individual appliance power.
-However, such labels are expensive to collect and extremely scarce in practice, as they require conducting intrusive surveys in households to monitor each appliance.
-In this paper, we introduce CamAL, a weakly supervised approach for appliance pattern localization that only requires information on the presence of an appliance in a household to be trained.
+Official codebase implementation for **Few Labels are all you need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series**
 
 <p align="center">
 <img width="600" src="./images/IntroFigure.jpg"/>
 </p>
 
-## Contributors
+Improving smart grid system management is crucial in the fight against climate change, and enabling consumers to play an active role in this effort is a significant challenge for electricity suppliers. 
+In this regard, millions of smart meters have been deployed worldwide in the last decade, recording the main electricity power consumed in individual households.
+This data produces valuable information that can help them reduce their electricity footprint; nevertheless, the collected signal aggregates the consumption of the different appliances running simultaneously in the house, making it difficult to apprehend.
+**Non-Intrusive Load Monitoring (NILM)** refers to the challenge of estimating the power consumption, pattern, or on/off state activation of individual appliances using the main smart meter signal.
+Recent methods proposed to tackle this task are based on a fully supervised deep-learning approach that requires both the aggregate signal and the ground truth of individual appliance power.
+However, such labels are expensive to collect and extremely scarce in practice, as they require conducting intrusive surveys in households to monitor each appliance.
+We introduce CamAL, a weakly supervised approach for appliance pattern localization that only requires information on the presence of an appliance in a household to be trained.
 
-* Adrien Petralia (Université Paris Cité, EDF Research)
-* Paul Boniol (Inria, ENS)
-* Philippe Charpentier (EDF Research)
-* Themis Palpanas (IUF, Université Paris Cité,) 
 
-## Outline
+
+
+
+## Outline 📝
+
+This repository contains the **source code** of CamAL, as well as the code needed to reproduce the experimental evaluation from our paper.  
 
 Overall our repo contains the following elements:
 - [Expes](https://github.com/adrienpetralia/CamAL/tree/main/Expes): Script to run our experiments for each dataset
@@ -28,7 +28,11 @@ Overall our repo contains the following elements:
 - [Helpers](https://github.com/adrienpetralia/CamAL/tree/main/Helpers): Preprocessing and Postprocessing functions
 - [Models](https://github.com/adrienpetralia/CamAL/tree/main/Models): CamAL code and other state of the art implementations
 
-## Get ready
+---
+
+### Getting Started 🚀
+
+To install the dependencies, you can use the following commands. Life is much easier thanks to [uv](https://astral.sh/blog/uv)!
 
 ```bash
 pip install uv
@@ -36,6 +40,27 @@ git clone https://github.com/adrienpetralia/CamAL.git
 cd CamAL
 uv sync
 ```
+
+
+### Code Structure 📁
+
+```
+.
+├── assets                 # assets for the README file 
+├── configs                # configs folder (i.e., '.yaml' files)
+├── data                   # data info folder
+├── scripts                # scripts to launch experiments
+│   ├── run_one_expe.py    #   python script to launch one experiment
+│   └── run_all_expe.sh    #   bash script to launch all experiments
+├── src                    # source package
+│   ├── helpers            #   helper functions (processing, training loops, metrics, ...)
+│   ├── baselines          #   nilm baselines
+│   └── camal              #   camal model
+├── pyproject.toml         # project setup file
+└── uv.lock                # lock to resolve dependencies
+```
+
+### Launch an Experiment ⚙️
 
 
 ## CamAL in Short
@@ -68,7 +93,7 @@ where $x(t)$ is the total power consumption measured by the main meter at timest
 Practitioners are interested in solving two problems: (i) discovering *if* an appliance has been activating (Appliance detection problem), and (ii) identifying *when* an appliance has been used (Per-Timestamp Appliance Localization Problem). The two problems are formalized as follows:
 
 #### Problem 1: Appliance Detection
-Given an aggregate smart meter subsequence $w$, $\mathcal{X} \in \mathbb{R}^{T}$, an appliance $a$, we want to know if $a$ has been used in $\mathcal{X}$ (i.e., was in an "ON" state, regardless of the time and number of activations). 
+Given an aggregate consumption smart meter series $\boldsymbol{x} = \bigl(\mathbf{x}_{t_1},\mathbf{x}_{t_2},\,\ldots,\mathbf{x}_{t_T}\bigr) \in \mathbb{R}^+_{T}$, an appliance $a$, we want to know if $a$ has been used in $\boldsymbol{x}$ (i.e., was in an "ON" state, regardless of the time and number of activations). 
 
 #### Problem 2: Per-timestamp Appliance Localizaton
 The total active power consumed in a household is denoted by $x(t)$, the active power of the $n$-th appliance by $a_n(t)$, and its state by $s_n(t) \in \{0, 1\}$. Then we have:
@@ -107,7 +132,7 @@ Such labels are significantly easier to collect with non-intrusive solutions, su
 CamAL solves Problem 2 from Problem 1, therefore using labels indicating if an appliance has been used within a time frame.
 
 
-### CamAL in details
+### CamAL in details 🔎
 
 As mentioned above, our proposed approach CamAL enables the detection and localization of appliance patterns in aggregated consumption series.
 CamAL can be decomposed into two parts: (1) an ensemble of deep-learning classifiers that performs the detection and (2) an explainability-based module that localizes the appliance (when detected).
@@ -204,5 +229,16 @@ $$
 $$
 
 
+## Contributors 👨‍👨‍👦‍👦
+
+* Adrien Petralia (Université Paris Cité, EDF Research)
+* Paul Boniol (Inria, ENS)
+* Philippe Charpentier (EDF Research)
+* Themis Palpanas (IUF, Université Paris Cité,) 
+
+
+## Acknowledgments 🎅
+
+Work supported by EDF R&D and ANRT French program.
 
 
