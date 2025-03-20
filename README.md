@@ -3,7 +3,7 @@
 Official codebase implementation for **Few Labels are all you need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series**
 
 <p align="center">
-<img width="600" src="./assets/IntroFigure.jpg"/>
+<img width="300" src="./assets/IntroFigure.jpg"/>
 </p>
 
 Improving smart grid system management is crucial in the fight against climate change, and enabling consumers to play an active role in this effort is a significant challenge for electricity suppliers. 
