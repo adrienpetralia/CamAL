@@ -22,12 +22,6 @@ We introduce CamAL, a weakly supervised approach for appliance pattern localizat
 
 This repository contains the **source code** of CamAL, as well as the code needed to reproduce the experimental evaluation from our paper.  
 
-Overall our repo contains the following elements:
-- [Expes](https://github.com/adrienpetralia/CamAL/tree/main/Expes): Script to run our experiments for each dataset
-- [Configs](https://github.com/adrienpetralia/CamAL/tree/main/Configs): Config files for our experimental evaluation
-- [Helpers](https://github.com/adrienpetralia/CamAL/tree/main/Helpers): Preprocessing and Postprocessing functions
-- [Models](https://github.com/adrienpetralia/CamAL/tree/main/Models): CamAL code and other state of the art implementations
-
 ---
 
 ### Getting Started 🚀
