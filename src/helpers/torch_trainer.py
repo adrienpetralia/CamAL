@@ -23,7 +23,7 @@ class BasedClassifTrainer(object):
                  valid_criterion=None,
                  n_warmup_epochs=0,
                  f_metrics=Classifmetrics(),
-                 verbose=True, plotloss=True, 
+                 verbose=False, plotloss=False, 
                  save_fig=False, path_fig=None,
                  save_checkpoint=False, path_checkpoint=None):
         """
@@ -63,21 +63,14 @@ class BasedClassifTrainer(object):
         if patience_rlr is not None:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', 
                                                                         patience=patience_rlr, 
-                                                                        verbose=self.verbose,
                                                                         eps=1e-7)
-            
-        #if n_warmup_epochs > 0 and self.scheduler is not None:
-        #    self.scheduler = create_lr_scheduler_with_warmup(self.scheduler,
-        #                                                     warmup_start_value=1e-6,
-        #                                                     warmup_end_value=learning_rate,
-        #                                                     warmup_duration=n_warmup_epochs)
 
         self.log = {}
         self.train_time = 0
         self.eval_time = 0
         self.voter_time = 0
         self.passed_epochs = 0
-        self.best_loss = np.Inf
+        self.best_loss = np.inf
         self.loss_train_history = []
         self.loss_valid_history = []
         self.accuracy_train_history = []
@@ -145,7 +138,7 @@ class BasedClassifTrainer(object):
             if valid_loss <= self.best_loss and self.passed_epochs>=self.n_warmup_epochs:
                 self.best_loss = valid_loss
                 self.log = {'valid_metrics': valid_accuracy if self.valid_loader is not None else train_accuracy,
-                            'model_state_dict': self.model.module.state_dict() if self.device=="cuda" and self.all_gpu else self.model.state_dict(),
+                            'best_model_state_dict': self.model.module.state_dict() if self.device=="cuda" and self.all_gpu else self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'loss_train_history': self.loss_train_history,
                             'loss_valid_history': self.loss_valid_history,
@@ -164,9 +157,6 @@ class BasedClassifTrainer(object):
 
         if self.plotloss:
             self.plot_history()
-            
-        if self.save_checkpoint:
-            self.log['best_model_state_dict'] = torch.load(self.path_checkpoint+'.pt')['model_state_dict']
         
         # =======================update log======================= #
         self.log['training_time'] = self.train_time
@@ -174,11 +164,6 @@ class BasedClassifTrainer(object):
         self.log['loss_valid_history'] = self.loss_valid_history
         self.log['accuracy_train_history'] = self.accuracy_train_history
         self.log['accuracy_valid_history'] = self.accuracy_valid_history
-        
-        #if flag_es != 0:
-        #    self.log['final_epoch'] = es_epoch
-        #else:
-        #    self.log['final_epoch'] = n_epochs
         
         if self.save_checkpoint:
             self.save()
@@ -281,9 +266,8 @@ class BasedClassifTrainer(object):
                 self.model.module.load_state_dict(self.log['best_model_state_dict'])
             else:
                 self.model.load_state_dict(self.log['best_model_state_dict'])
-            print('Restored best model met during training.')
         except KeyError:
-            print('Error during loading log checkpoint state dict : no update.')
+            warnings.warn('Error during loading log checkpoint state dict : no update.')
         return
     
     def __train(self):
@@ -408,7 +392,7 @@ class ClassifTrainerSigmoid(object):
         self.eval_time = 0
         self.voter_time = 0
         self.passed_epochs = 0
-        self.best_loss = np.Inf
+        self.best_loss = np.inf
         self.loss_train_history = []
         self.loss_valid_history = []
         self.accuracy_train_history = []
@@ -753,7 +737,7 @@ class SeqToSeqTrainer():
         self.eval_time = 0
         self.voter_time = 0
         self.passed_epochs = 0
-        self.best_loss = np.Inf
+        self.best_loss = np.inf
         self.loss_train_history = []
         self.loss_valid_history = []
         self.accuracy_train_history = []

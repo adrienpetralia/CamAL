@@ -1,7 +1,5 @@
 import torch.nn as nn
 
-from Models.Layers.UtilsLayer import Conv1dSamePadding
-
 class ResNet(nn.Module):
 	def __init__(self, in_channels=1, mid_channels=64, nb_class=2):
 		super().__init__()
@@ -41,7 +39,7 @@ class ResNetBlock(nn.Module):
 		if in_channels != out_channels:
 			self.match_channels = True
 			self.residual = nn.Sequential(*[
-				Conv1dSamePadding(in_channels=in_channels, out_channels=out_channels,
+				nn.Conv1d(in_channels=in_channels, out_channels=out_channels,
 								  kernel_size=1, stride=1),
 				nn.BatchNorm1d(num_features=out_channels)
 			])
@@ -57,10 +55,11 @@ class ConvBlock(nn.Module):
 		super().__init__()
 
 		self.layers = nn.Sequential(
-			Conv1dSamePadding(in_channels=in_channels,
+			nn.Conv1d(in_channels=in_channels,
 							  out_channels=out_channels,
 							  kernel_size=kernel_size,
-							  stride=stride),
+							  stride=stride,
+							  padding="same"),
 			nn.BatchNorm1d(num_features=out_channels),
 			nn.ReLU(),
 		)

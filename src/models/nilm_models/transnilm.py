@@ -127,7 +127,7 @@ class TransNILM(nn.Module):
 
     As TPNILM, input length need to be 510 and model output window size of length 480 due to no padding in Temporal Pooling convolutional encoder block
     """
-    def __init__(self, in_channels=1, out_channels=1, features=32, stride=2):
+    def __init__(self, window_size, in_channels=1, out_channels=1, features=32, stride=2):
         super(TransNILM, self).__init__()
         self.encoder     = Encoder(in_channels, features, kernel_size=3, kernel_mp=2)
         self.decoder     = Decoder(2*features*8, features, kernel_size=stride**3, stride=stride**3)

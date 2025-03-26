@@ -1,25 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-
-# Convolutional Dilated Embedding Block Functions
-class Conv1dSamePadding(nn.Conv1d):
-    def forward(self, input):
-        return conv1d_same_padding(input, self.weight, self.bias, self.stride,
-                                   self.dilation, self.groups)
-
-
-def conv1d_same_padding(input, weight, bias, stride, dilation, groups):
-    kernel, dilation, stride = weight.size(2), dilation[0], stride[0]
-    l_out = l_in = input.size(2)
-    padding = (((l_out - 1) * stride) - l_in + (dilation * (kernel - 1)) + 1)
-    if padding % 2 != 0:
-        input = F.pad(input, [0, 1])
-
-    return F.conv1d(input=input, weight=weight, bias=bias, stride=stride,
-                    padding=padding // 2,
-                    dilation=dilation, groups=groups)
 
 
 class Dense(nn.Module):
@@ -40,8 +21,8 @@ class BiGRU(nn.Module):
         
         self.drop = nn.Dropout(dropout)
 
-        self.conv1 = Conv1dSamePadding(in_channels=c_in, out_channels=16, kernel_size=5, dilation=1, stride=1, bias=True)
-        self.conv2 = Conv1dSamePadding(in_channels=16, out_channels=8, kernel_size=5, dilation=1, stride=1, bias=True)
+        self.conv1 = nn.Conv1d(in_channels=c_in, out_channels=16, kernel_size=5, dilation=1, stride=1, bias=True, padding="same")
+        self.conv2 = nn.Conv1d(in_channels=16, out_channels=8, kernel_size=5, dilation=1, stride=1, bias=True, padding="same")
 
         self.gru1 = nn.GRU(8, 64, batch_first=True, bidirectional=True)
         self.gru2 = nn.GRU(128, 128, batch_first=True, bidirectional=True)

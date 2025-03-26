@@ -7,70 +7,78 @@ import warnings
 import torch
 
 from src.helpers.class_activation_map import CAM
-from src.helpers.data_processing import NILMdataset_to_Clf, UnderSampler
+from src.helpers.data_processing import nilmdataset_to_clfdataset, undersampler
 from src.helpers.torch_dataset import SimpleDataset, TSDataset
 from src.helpers.torch_trainer import BasedClassifTrainer
 from src.helpers.other import NILMmetrics, Classifmetrics
-from src.models.camal.classifiers.camal_resnet import CamALResNet
 
+from src.models.camal.classifiers.camal_resnet import CamALResNet
 
 from torch.utils.data import DataLoader
 
 class CamAL(object):
     def __init__(self, 
-                 path,
+                 n_predictors=5,
                  device='cpu',
-                 kernel_sizes=[5, 7, 9, 15, 25],
-                 n_best_clf=5,
-                 n_try_clf=3,
                  batch_inference=128,
-                 timestamp_metrics=NILMmetrics(),
-                 clf_metrics=Classifmetrics()):
+                 loc_metrics=NILMmetrics(),
+                 clf_metrics=Classifmetrics(),
+                 **resnet_kwargs):
 
-        self.path   = path
         self.device = device
-
-        self.kernel_sizes = kernel_sizes
-        self.n_best_clf   = n_best_clf
-        self.n_try_clf    = n_try_clf
-
+        self.n_predictors = n_predictors
+        
         self.batch_inference   = batch_inference
-        self.timestamp_metrics = timestamp_metrics
+        self.loc_metrics = loc_metrics
         self.clf_metrics       = clf_metrics
 
-        # ========== Hyperparameters ========== #
-        self.p_es_ensemble   = 5
-        self.p_rlr_ensemble  = 3
-        self.n_warmup_epochs = 1
+        resnet_kwargs.setdefault("in_channels", 1)  # Default in_channels
+        resnet_kwargs.setdefault("mid_channels", 64)  # Default mid_channel
+        resnet_kwargs.setdefault("norm", "BatchNorm")  # Default mid_channel
+
+        self.resnet_kwargs = resnet_kwargs
+
+        self.is_fitted = False
+        self.camal_logs = None
+        self.list_resnet_predictors = None
+        self.list_cam_predictors    = None
 
 
     def train(self,
-              train_dataset, 
-              valid_dataset,
-              test_dataset,
-              lr = 1e-3,
-              batch_size=128,
-              epochs=50,
-              balance_class=True,
-              compress_and_save_space=True):
+              train_dataset: tuple, 
+              valid_dataset: tuple,
+              test_dataset: tuple,
+              list_kernel_sizes: list=[5, 7, 9, 15, 25],
+              n_try_by_kernel: int=1,
+              path:str = None,
+              **training_kwargs):
         """
-        Inputs:
-        - param_training_global: [dict] with expes parameters
-        - path: [string] path to save ResNets clf instances
-        - train_dataset: [tuple] such as (X_train, y_train)
-        - valid_dataset: [tuple] such as (X_valid, y_valid)
-        - test_dataset:  [tuple] such as (X_test, y_test)
+        Train CamAL ResNet ensemble.
 
-        Output:
-        - dict_ens_results: [dict] with all infos (best models, loss, metrics)
+        Args:
+
+        Returns:
+            None
         """
+
+        assert n_try_by_kernel * len(list_kernel_sizes) >= self.n_predictors, f'The number of keep predictors does not meet the number of kernel to try and the try by kernel.'
+
+        training_kwargs.setdefault("batch_size", 128)  # Default batch_size
+        training_kwargs.setdefault("epochs", 50)  # Default number of epochs
+        training_kwargs.setdefault("lr", 1e-3)  # Default lr
+        training_kwargs.setdefault("weight_decay", 0) # Default wd
+        training_kwargs.setdefault("patience_es", 5) # Default patience for es
+        training_kwargs.setdefault("patience_rlr", 3) # Default patience for reduce lr
+        training_kwargs.setdefault("n_warmup_epochs", 1) # Default warmup epochs
+        training_kwargs.setdefault("all_gpu", False) # Default DataParallel call (True means using multiple GPUs for training)
+
         X_train, y_train = train_dataset[0], train_dataset[1]
         X_valid, y_valid = valid_dataset[0], valid_dataset[1]
         X_test,  y_test  = test_dataset[0],  test_dataset[1]
 
         # Balance data class for training
-        if balance_class:
-            X_train, y_train = UnderSampler(X_train, y_train, sampling_strategy="auto", seed=0)
+        #if balance_class:
+        X_train, y_train = undersampler(X_train, y_train, sampling_strategy="auto", seed=0)
         
         # Create dataset
         train_dataset = TSDataset(X_train, y_train)
@@ -78,118 +86,91 @@ class CamAL(object):
         test_dataset  = TSDataset(X_test,  y_test)
 
         # Init dicts result
-        tmp_dict_results = {}
-        dict_results     = {}
+        tmp_loss_results = {}
+        camal_logs = {}
+        camal_logs['ensemble_training_logs'] = {}
 
-
-        if self.verbose:
-            print('Train ResNet clf ensemble')
-
-        tmp_time = time.time()
+        start_training_time = time.time()
 
         idx_clf = 0
-        for kernel_size in self.kernel_sizes:
-            for i in range(self.n_try_clf):
+        for kernel_size in list_kernel_sizes:
+            for nth_try in range(n_try_by_kernel):
 
-                resnet_inst = CamALResNet(kernel_size=kernel_size)
+                resnet_inst = CamALResNet(kernel_size=kernel_size, **self.resnet_kwargs)
 
                 # Dataloader
-                train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+                train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=training_kwargs['batch_size'], shuffle=True)
                 valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=1,  shuffle=False)
                 test_loader  = torch.utils.data.DataLoader(test_dataset,  batch_size=1,  shuffle=False)
 
                 # Init trainer
                 clf_trainer = BasedClassifTrainer(resnet_inst,
                                                   train_loader=train_loader, valid_loader=valid_loader,
-                                                  learning_rate=lr, weight_decay=0,
-                                                  patience_es=self.p_es_ensemble, patience_rlr=self.p_rlr_ensemble,
-                                                  n_warmup_epochs=self.n_warmup_epochs,
-                                                  device=self.device, all_gpu=False,
-                                                  verbose=False, plotloss=False, 
-                                                  save_checkpoint=True, path_checkpoint=f'{self.path}ResNet_{idx_clf}')
+                                                  learning_rate=training_kwargs['lr'], weight_decay=training_kwargs['weight_decay'],
+                                                  patience_es=training_kwargs['patience_es'], patience_rlr=training_kwargs['patience_rlr'],
+                                                  n_warmup_epochs=training_kwargs['n_warmup_epochs'],
+                                                  device=self.device, all_gpu=training_kwargs['all_gpu']
+                                                )
 
                 # Train 
-                clf_trainer.train(epochs)
+                clf_trainer.train(training_kwargs['epochs'])
 
                 # Eval
                 clf_trainer.restore_best_weights()
-                loss_eval, metrics = clf_trainer.evaluate(test_loader)
+                loss_eval, _ = clf_trainer.evaluate(test_loader)
 
-                if compress_and_save_space:
-                    # Attention, model logs compressed! -> file end with ".xz" not ".pt"
-                    clf_trainer.compress()
-
-                if self.verbose:
-                    print(f'Trained ResNet_{idx_clf} with Kernel size: {kernel_size} (nth_try {i}).')
-                    print('Loss test:', loss_eval)
-                    print('Score:', metrics)
+                print(f'Trained predictor {idx_clf} with kernel size: {kernel_size} (nth_try {nth_try}) - loss: {loss_eval}.')
 
                 # Save loss value
-                tmp_dict_results[f'ResNet_{idx_clf}'] = loss_eval
-                dict_results[f'ResNet_{idx_clf}']     = {'LossTest': loss_eval, 'MetricTest': metrics, 'kernel_size': kernel_size, 'nth_try': i}
+                tmp_loss_results[f'Predictor_{idx_clf}'] = loss_eval
+                camal_logs['ensemble_training_logs'][f'Predictor_{idx_clf}'] = clf_trainer.log
+                camal_logs['ensemble_training_logs'][f'Predictor_{idx_clf}']['kernel_size'] = kernel_size
+                camal_logs['ensemble_training_logs'][f'Predictor_{idx_clf}']['nth_try'] = nth_try
 
-                # Update counters
-                idx_clf +=1
+                idx_clf += 1
 
-        dict_results['TrainingTime'] = round((time.time() - tmp_time), 3)
-
-        if self.verbose:
-            print('Training time:', dict_results['TrainingTime'])
+        camal_logs['training_time'] = round((time.time() - start_training_time), 3)
         
-        heap = [(loss, name) for name, loss in tmp_dict_results.items()]
+        # Rank Resnet predictos accroding to eval loss
+        heap = [(loss, name) for name, loss in tmp_loss_results.items()]
         heapq.heapify(heap)
-        smallest = heapq.nsmallest(self.n_best_clf, heap)
+        smallest = heapq.nsmallest(self.n_predictors, heap)
+        del tmp_loss_results
 
         # Get the name of the best clf and select them for final ensemble
         list_best_clf = [name for _, name in smallest]
-        if self.verbose:
-            print('List best clf:', list_best_clf)
-        dict_results['ListBestResNets'] = list_best_clf
 
-        # Delete the clfs for the ensemble (worst performance)
-        if self.verbose:
-            print('Delete worst clf...')
+        camal_logs['camal_predictors_id'] = list_best_clf
 
-        if compress_and_save_space:
-            for i in range(idx_clf):
-                if not (f'ResNet_{i}' in list_best_clf):
-                    os.remove(f'{self.path}ResNet_{i}.xz')
-                    if self.verbose:
-                        print(f'ResNet_{i} removed.')
-        if self.verbose:
-            print('Done.')
+        for i in range(idx_clf):
+            if not (f'Predictor_{i}' in list_best_clf):
+                camal_logs['ensemble_training_logs'][f'Predictor_{i}'].pop('best_model_state_dict', None)
 
-        # Save ensemble dict_results in pkl file at provided path
-        name_file = f'{self.path}LogResNetsEnsemble.pkl'
 
-        print(f'Save ResNets ensemble log at path: {self.path}LogResNetsEnsemble.pkl')
-        with open(name_file, 'wb') as f:
-            pickle.dump(dict_results, f, protocol=pickle.HIGHEST_PROTOCOL)
+        camal_logs['is_fitted'] = True
 
-        return dict_results
+        if path is not None:
+            with open(path, 'wb') as f:
+                pickle.dump(camal_logs, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        self.camal_logs = camal_logs
+        self.is_fitted  = True 
+        self.eval()
+
+        return
     
 
     def test(self,
              data_test,
-             path_ensemble_clf=None,
              appliance_mean_on_power=None,
-             scaler=None, 
-             return_clf_perf=True):
+             scaler=None):
 
-        if path_ensemble_clf is None:
-            path_ensemble_clf = self.path+'ResNetEnsemble/'
-            
-            if not os.path.exists(path_ensemble_clf):
-                warnings.warn(f"No ensemble trained at provide path: {path_ensemble_clf}. be sure that the provided path include an")
-                return
-            
         if len(data_test.shape)<4:
             raise ValueError("Provided test data need to be given in NILM standard (4D numpy array)")
 
         # Create soft label
-        soft_label, prob_detect = self.create_soft_label(path_ensemble_clf,
-                                                         data_test[:, 0, 0, :],
-                                                         return_prob=True)
+        soft_label, prob_detect = self.predict(data_test[:, 0, 0, :],
+                                               return_prob=True)
 
         # Get y_state and y_hat_state
         y_state     = data_test[:, 1, 1, :].ravel().astype(dtype=int)
@@ -213,81 +194,75 @@ class CamAL(object):
             del tmp_agg
 
             # Compute metric (NILM reg + classif)
-            metric_softlabel = self.timestamp_metrics(y, y_hat, y_state, y_hat_state)
+            metric_softlabel = self.loc_metrics(y, y_hat, y_state, y_hat_state)
         else: 
             # Compute metric (NILM classif)
-            metric_softlabel = self.timestamp_metrics(y=None, y_hat=None, y_state=y_state, y_hat_state=y_hat_state)
+            metric_softlabel = self.loc_metrics(y=None, y_hat=None, y_state=y_state, y_hat_state=y_hat_state)
 
-        _, y_clf_true = NILMdataset_to_Clf(data_test)
+        _, y_clf_true = nilmdataset_to_clfdataset(data_test)
         metric_classif = self.clf_metrics(y=y_clf_true.ravel(), y_hat=prob_detect.ravel())
 
-        if return_clf_perf:
-            return metric_softlabel, metric_classif
-        else:
-            return metric_softlabel
+        return {'Localization metrics:', metric_softlabel, 'Classification metrics:', metric_classif}
     
 
-    def create_soft_label(self,
-                          path_ensemble_clf,
-                          data,
-                          y=None,
-                          return_prob=False):
-        
-        if path_ensemble_clf is None:
-            path_ensemble_clf = self.path+'ResNetEnsemble/'
+    def load(
+            self,
+            path: str
+            ):
             
-            if not os.path.exists(path_ensemble_clf):
-                warnings.warn(f"No ensemble trained at provide path: {path_ensemble_clf}. be sure that the provided path include an")
-                return
+        with open(path, 'rb') as handle:
+            self.camal_logs = pickle.load(handle)
 
-        assert len(data.shape)<=2, f'dat input need to be 2D numpy array for create_soft_label, got a {data.shape}D array.'
+        print('Log successfully loaded.')
+
+        self.is_fitted = self.camal_logs['is_fitted']
+
+        return
+
+    def predict(self,
+                data: np.array,
+                y: np.array=None,
+                return_prob=False):
+        """
+        Predict the localization activation of the appliance.
+
+        Args:
+            data (numpy.array): Input aggregate consumption data. This can be a 1D or 2D (batched) array.
+            y (numpy.array, optional): 1D array, ground truth classifictaion label associated to the provided data
+            return_prob (bool): Device type (i.e., cpu, cuda, cuda:0, etc.)
+
+        Returns:
+            None
+        """
+
+        if not self.is_fitted:
+            raise ValueError('CamAL instance is not fitted. Train CamAL or load a fitted instance of CamAL before trying to predict.')
+
+        assert len(data.shape)<=2, f'Input data need to be a 1D or 2D (batched) numpy array, got a {len(data.shape)}D array of size {data.shape}.'
 
         if len(data.shape)==1:
             data = np.expand_dims(data, axis=0)
 
-        with open(f'{path_ensemble_clf}LogResNetsEnsemble.pkl', 'rb') as handle:
-            dict_results = pickle.load(handle)
+        if self.list_resnet_predictors is None:
+            self.eval()
 
-        list_best_resnets = dict_results['ListBestResNets']
-
-        soft_label  = np.zeros_like(data)
+        prediction = np.zeros_like(data)
         prob_detect = np.zeros((len(data), 1))
 
         # Loop on BestResNets 
-        for resnet_name in list_best_resnets:
-            resnet_inst = CamALResNet(kernel_size=dict_results[resnet_name]['kernel_size'])
-            resnet_inst.to(self.device)
-
-            if os.path.exists(f'{path_ensemble_clf}{resnet_name}.xz'):
-                path_model = f'{path_ensemble_clf}{resnet_name}.xz'
-                with lzma.open(path_model, 'rb') as file:
-                    decompressed_file = file.read()
-                log = torch.load(io.BytesIO(decompressed_file), map_location=torch.device(self.device))
-                del decompressed_file
-            elif os.path.exists(f'{path_ensemble_clf}{resnet_name}.pt'):
-                path_model = f'{path_ensemble_clf}{resnet_name}.pt'
-                log = torch.load(path_model, map_location=torch.device(self.device))
-            else:
-                raise ValueError(f'Provide folders {path_ensemble_clf} does not contain {resnet_name} clf.')
-
-            resnet_inst.load_state_dict(log['model_state_dict'])
-            resnet_inst.eval()
-
-            # Get first the per window prediction labels using large batch
+        for ind_res, resnet_inst in enumerate(self.list_resnet_predictors):
+            # If running on GPUs: get first the per subsequence class labels to speed up inference
             if (self.device!='cpu') and (y is None):
-                y = self._get_window_labels(resnet_inst, data)
+                y = self._predict_subsequence_class(resnet_inst, data)
 
             for idx in range(len(data)): 
-                # Use provide window label to speed up (by not computing the CAM)
+                # Check subsequence's predicted label
                 if y is not None:
                     if y[idx]<1:
+                        # Continue if appliance not detected
                         continue
 
-                CAM_builder = CAM(model=resnet_inst, device=self.device, 
-                                  last_conv_layer=resnet_inst._modules['layers'][2], 
-                                  fc_layer_name=resnet_inst._modules['linear'])
-                
-                cam, y_pred, proba   = CAM_builder.run(instance=data[idx], returned_cam_for_label=1)
+                cam, y_pred, proba   = self.list_cam_predictors[ind_res].run(instance=data[idx], returned_cam_for_label=1)
                 prob_detect[idx][0] += proba[1]
                     
                 # Or if app detected in this window
@@ -298,30 +273,118 @@ class CamAL(object):
 
                     if clip_cam.max()>0:
                         clip_cam = clip_cam / clip_cam.max()
-                    else:
-                        clip_cam = np.zeros_like(clip_cam)
-
-                    soft_label[idx] += clip_cam.ravel()
-
-            del resnet_inst
+                        prediction[idx] += clip_cam.ravel()
+                    
             
         # Majority voting: if the ensemble probability of detection < 0.5 appliance not detected in wins, soft label set to 0
-        prob_detect = prob_detect / len(list_best_resnets)
-        soft_label  = soft_label / len(list_best_resnets)
+        prob_detect = prob_detect / len(self.list_resnet_predictors)
+        prediction = prediction / len(self.list_resnet_predictors)
         
         # Set window soft label to 0 if the ensemble not detect an appliance in a window
-        soft_label  = soft_label * np.round(prob_detect)
+        prediction = prediction * np.round(prob_detect)
 
         # Sigmoid-Attention Module
-        soft_label  = self.SigmoidAttentionModule(data, soft_label)
+        prediction = self.attention_sigmoid_module(data, prediction)
 
         if return_prob:
-            return soft_label, prob_detect
+            return prediction, prob_detect
         else:
-            return soft_label
+            return prediction
+        
+
+    def __call__(self, 
+                 data,
+                 y=None,
+                 return_prob=False):
+        """
+        Wrapper to predict function
+
+        Args:
+            device (str): Device type (i.e., cpu, cuda, cuda:0, etc.)
+
+        Returns:
+            None
+        """
+        return self.predict(data, y=y, return_prob=return_prob)
+    
+
+    def to(
+            self, 
+            device: str
+           ) -> None:
+        """
+        Move ResNet predictors to a choosen device.
+
+        Args:
+            device (str): Device type (i.e., cpu, cuda, cuda:0, etc.)
+
+        Returns:
+            None
+        """
+        if self.list_resnet_predictors is not None:
+            for predictors in self.list_resnet_predictors:
+                predictors.to(device)
+        else:
+            warnings.warn(f"Cannot move anything to a device: no predictors in cache.")
+        
+        self.device = device
+
+        return
 
 
-    def SigmoidAttentionModule(self, data, soft_label, w_ma=5):
+    def eval(
+        self,
+        ) -> None:
+        """Set ResNets ensemble predictors in eval mode (pytorch)
+
+        Args:
+            None
+        Returns:
+            None
+        """
+
+        if not self.is_fitted:
+            raise ValueError('CamAL instance is not fitted. Train CamAL or load a fitted instance of CamAL before trying to move it in eval mode.')
+
+        list_resnet_predictors = []
+        list_cam_predictors    = []
+
+        for resnet_name in self.camal_logs['camal_predictors_id']:
+            resnet_inst = CamALResNet(kernel_size=self.camal_logs['ensemble_training_logs'][resnet_name]['kernel_size'])
+            resnet_inst.to(self.device)
+
+            resnet_inst.load_state_dict(self.camal_logs['ensemble_training_logs'][resnet_name]['best_model_state_dict'])
+            resnet_inst.eval()
+
+            cam_resnet_inst = CAM(model=resnet_inst, device=self.device, 
+                                  last_conv_layer=resnet_inst._modules['layers'][2], 
+                                  fc_layer_name=resnet_inst._modules['linear'])
+
+            list_resnet_predictors.append(resnet_inst)
+            list_cam_predictors.append(cam_resnet_inst)
+
+        self.list_resnet_predictors = list_resnet_predictors
+        self.list_cam_predictors    = list_cam_predictors
+
+        return
+
+
+    def attention_sigmoid_module(
+        self, 
+        data: np.array, 
+        soft_label: np.array, 
+        w_ma:int=5
+        ) -> np.array:
+        """CamAL's attention sigmoid module.
+
+        Args:
+            data (numpy.array): The input data array containing aggregate power subsequences.
+            soft_label (numpy.array): The array containing the computed average CAM.
+            w_ma (int, optional): Moving average window length, defaults to "5".
+
+        Returns:
+            numpy.array
+        """
         # Apply moving average
         soft_label = np.apply_along_axis(lambda x: self.moving_average(x, w=w_ma), axis=1, arr=soft_label)
 
@@ -332,7 +395,42 @@ class CamAL(object):
         return np.round(soft_label)
 
 
-    def _get_window_labels(self, model, data):
+    def moving_average(
+        self, 
+        x: np.array, 
+        w: int
+        ) -> np.array:
+        """Wrapper for moving average function based on the convolve numpy function
+
+        Args:
+            x (numpy.array): The input array.
+            w (int): Moving average window length.
+
+        Returns:
+            numpy.array
+        """
+        return np.convolve(x, np.ones(w), 'same') / w 
+    
+
+    def sigmoid(self, z):
+        """
+        Rectified sigmoid function
+
+        Args:
+            z (numpy.array): array
+
+        Returns:
+            numpy.array
+        """
+        return 2 * (1.0/(1.0 + np.exp(-z)))-1
+
+
+    def _predict_subsequence_class(
+            self, 
+            model, 
+            data
+            ) -> np.array:
+        # Private function that compute the classification label for each subsequence to speed up inference for large dataset
         model.to(self.device)
         model.eval()
         data   = SimpleDataset(data)
@@ -347,11 +445,3 @@ class CamAL(object):
                 y_hat = np.concatenate((y_hat, predicted.detach().cpu().numpy().flatten())) if y_hat.size else predicted.detach().cpu().numpy().flatten()
 
         return y_hat.astype(np.int8)
-    
-
-    def _sigmoid(self, z):
-        return 2 * (1.0/(1.0 + np.exp(-z))) -1
-
-
-    def _moving_average(self, x, w):
-        return np.convolve(x, np.ones(w), 'same') / w

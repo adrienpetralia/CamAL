@@ -18,7 +18,8 @@ def apply_graphics_setting(ax=None, legend_font_size=20, label_fontsize=20):
             
         
         plt.grid(linestyle='-.') 
-        plt.legend(fontsize=legend_font_size)
+        if legend_font_size is not None:
+            plt.legend(fontsize=legend_font_size)
         plt.tight_layout()
     else:
         for pos in ['right', 'top', 'bottom', 'left']:
@@ -28,7 +29,8 @@ def apply_graphics_setting(ax=None, legend_font_size=20, label_fontsize=20):
             label.set_fontsize(label_fontsize)  
 
         ax.grid(linestyle='-.') 
-        ax.legend(fontsize=legend_font_size)
+        if legend_font_size is not None:
+            ax.legend(fontsize=legend_font_size)
         ax.figure.tight_layout()
 
 

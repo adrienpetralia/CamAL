@@ -38,7 +38,7 @@ class Decoder(nn.Module):
 
 class TPNILM(nn.Module):
 
-    def __init__(self, in_channels=1, out_channels=1, init_features=32):
+    def __init__(self, window_size, in_channels=1, out_channels=1, init_features=32):
         super(TPNILM, self).__init__()
         p = 2
         k = 1

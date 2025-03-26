@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class Transpose(nn.Module):
     def __init__(self, *dims, contiguous=False): 
@@ -65,7 +64,7 @@ class SCRNN(nn.Module):
                  n_crnn_block=4,
                  h_gru_units=128, 
                  kernel_size=5, dp_rate=0.1):
-        super(SCRNN,self).__init__()
+        super().__init__()
 
         layers = []
         for i in range(n_crnn_block):
@@ -95,14 +94,15 @@ class CRNN(nn.Module):
         2) Bag level (detection probabilites yes/no for current windows)
     """
     def __init__(self, 
+                 window_size, 
                  c_in=1,
                  n_classes=1, 
                  n_crnn_block=4,
-                 h_gru_units=128, 
+                 h_gru_units=265, 
                  kernel_size=5, dp_rate=0.1,
                  weight=1,
                  clip_smoothing=True, return_values='frame_level'):
-        super(CRNN,self).__init__()
+        super().__init__()
 
         assert return_values in ['frame_level', 'bag_level', 'both']
         

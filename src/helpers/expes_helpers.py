@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from src.helpers.data_processing import UnderSampler
+from src.helpers.data_processing import undersampler
 from src.helpers.torch_dataset import NILMDataset, TSDataset
 from src.helpers.torch_trainer import (
     SeqToSeqTrainer,
@@ -20,7 +20,7 @@ from src.models.camal.classifiers.camal_resnet import CamALResNet
 
 from src.models.nilm_models.bigru import BiGRU
 from src.models.nilm_models.unet_nilm import UNetNiLM
-from src.models.nilm_models.fcn_seqtoseq import Zhang_SeqtoSeq
+from src.models.nilm_models.fcn import FCN
 from src.models.nilm_models.tpnilm import TPNILM
 from src.models.nilm_models.transnilm import TransNILM
 from src.models.nilm_models.crnn import SCRNN, CRNN
@@ -62,7 +62,7 @@ def get_nilm_instance(model_name, window_size):
         inst = UNetNiLM(c_in=1, window_size=window_size, return_values='states')
         dt_params = {'model_name': model_name, 'lr': 1e-3, 'wd': 0, 'batch_size': 32, 'epochs': 30, 'p_es': 10, 'p_rlr': 5, 'n_warmup_epochs': 5, 'apply_sigmoid': True, 'training_in_model': False}
     elif model_name =='FCN':
-        inst = Zhang_SeqtoSeq(c_in=1, window_size=window_size)
+        inst = FCN(c_in=1, window_size=window_size)
         dt_params = {'model_name': model_name, 'lr': 1e-4, 'wd': 0, 'batch_size': 32, 'epochs': 30, 'p_es': 10, 'p_rlr': 5, 'n_warmup_epochs': 5, 'apply_sigmoid': True, 'training_in_model': False}
     elif model_name =='SCRNN':
         inst = SCRNN(c_in=1)
@@ -255,7 +255,7 @@ def train_crnnweak_possession(expes_config,
 
     # Balance data class for training
     if balance_class:
-        X_train, y_train = UnderSampler(X_train, y_train, sampling_strategy="auto", seed=0)
+        X_train, y_train = undersampler(X_train, y_train, sampling_strategy="auto", seed=0)
     
     # Create dataset
     train_dataset = TSDataset(X_train, y_train)
@@ -339,7 +339,7 @@ def train_resnet_ensemble(expes_config,
 
     # Balance data class for training
     if balance_class:
-        X_train, y_train = UnderSampler(X_train, y_train, sampling_strategy="auto", seed=0)
+        X_train, y_train = undersampler(X_train, y_train, sampling_strategy="auto", seed=0)
     
     # Create dataset
     train_dataset = TSDataset(X_train, y_train)

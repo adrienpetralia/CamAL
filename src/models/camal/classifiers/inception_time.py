@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from Models.Layers.UtilsLayer import pass_through, Flatten
+from src.models.camal.classifiers.layers import pass_through, Flatten
     
 class Inception(nn.Module):
     def __init__(self, in_channels=1, nb_class=2, n_filters=32, n_blocks=2,

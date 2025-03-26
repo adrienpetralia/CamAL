@@ -1,24 +1,5 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-# Convolutional Dilated Embedding Block Functions
-class Conv1dSamePadding(nn.Conv1d):
-    def forward(self, input):
-        return conv1d_same_padding(input, self.weight, self.bias, self.stride,
-                                   self.dilation, self.groups)
-
-
-def conv1d_same_padding(input, weight, bias, stride, dilation, groups):
-    kernel, dilation, stride = weight.size(2), dilation[0], stride[0]
-    l_out = l_in = input.size(2)
-    padding = (((l_out - 1) * stride) - l_in + (dilation * (kernel - 1)) + 1)
-    if padding % 2 != 0:
-        input = F.pad(input, [0, 1])
-
-    return F.conv1d(input=input, weight=weight, bias=bias, stride=stride,
-                    padding=padding // 2,
-                    dilation=dilation, groups=groups)
 
 class BiLSTM_NILM(nn.Module):
     def __init__(self, window_size, downstreamtask='seq2seq', c_in=1):
@@ -32,7 +13,7 @@ class BiLSTM_NILM(nn.Module):
         self.window_size = window_size
         self.downstreamtask = downstreamtask
 
-        self.conv = Conv1dSamePadding(in_channels=c_in, out_channels=16, kernel_size=4, dilation=1, stride=1, bias=True)
+        self.conv = nn.Conv1d(in_channels=c_in, out_channels=16, kernel_size=4, dilation=1, stride=1, bias=True, padding="same")
         self.lstm_1 = nn.LSTM(input_size=16, hidden_size=64, batch_first=True, bidirectional=True)
         self.lstm_2 = nn.LSTM(input_size=2*64, hidden_size=128, batch_first=True, bidirectional=True)
         self.fc_1 = nn.Linear(self.window_size*128*2, 128)

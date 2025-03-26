@@ -1,20 +1,18 @@
 import torch
 import torch.nn as nn
 
-from Models.Layers.UtilsLayer import Conv1dSamePadding
-
-class FCN(nn.Module):
+class ConvNet(nn.Module):
     def __init__(self, in_channels=1, nb_class=2):
-        super(FCN, self).__init__()
+        super(ConvNet, self).__init__()
 
         self.layer1 = nn.Sequential(
-            Conv1dSamePadding(in_channels=in_channels, out_channels=128, kernel_size=8),
+            nn.Conv1d(in_channels=in_channels, out_channels=128, kernel_size=8, padding="same"),
             nn.BatchNorm1d(128),
             nn.ReLU(),
             )
             
         self.layer2 = nn.Sequential(
-            Conv1dSamePadding(in_channels=128, out_channels=256, kernel_size=5),
+            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=5, padding="same"),
             nn.BatchNorm1d(256),
             nn.ReLU(),
             )

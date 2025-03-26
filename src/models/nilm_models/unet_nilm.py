@@ -86,7 +86,7 @@ class Conv1D(nn.Module):
                 activation)
         else:
             self.net = self.conv
-        nn.utils.weight_norm(self.conv)
+        torch.nn.utils.parametrizations.weight_norm(self.conv)
         nn.init.xavier_uniform_(self.conv.weight)
 
     def forward(self, x):
@@ -137,7 +137,7 @@ class UNetCNN1D(nn.Module):
             feats //= 2
 
         conv = nn.Conv1d(feats, feats, kernel_size=1)
-        conv = nn.utils.weight_norm(conv)
+        conv = torch.nn.utils.parametrizations.weight_norm(conv)
         nn.init.xavier_uniform_(conv.weight)
         layers.append(conv)
         self.layers = nn.ModuleList(layers)
@@ -163,12 +163,12 @@ class UNetNiLM(nn.Module):
 
     def __init__(
             self,
+            window_size,
             num_layers=4,
             features_start=8,
             c_in=1,
             num_classes=1,
             pooling_size=16,
-            window_size=128,
             quantiles=[0.5], # [0.0025,0.1, 0.5, 0.9, 0.975]
             d_model=128,
             dropout=0.1,
@@ -211,13 +211,13 @@ class UNetNiLM(nn.Module):
         self.fc_out_state = nn.Linear(1024, num_classes * window_size)
         self.fc_out_power = nn.Linear(1024, num_classes * window_size * self.num_quantiles)
 
-        nn.utils.weight_norm(self.mlp)
+        torch.nn.utils.parametrizations.weight_norm(self.mlp)
         nn.init.xavier_normal_(self.mlp.weight)
 
-        nn.utils.weight_norm(self.fc_out_power)
+        torch.nn.utils.parametrizations.weight_norm(self.fc_out_power)
         nn.init.xavier_normal_(self.fc_out_power.weight)
 
-        nn.utils.weight_norm(self.fc_out_state)
+        torch.nn.utils.parametrizations.weight_norm(self.fc_out_state)
         nn.init.xavier_normal_(self.fc_out_state.weight)
 
         self.fc_out_state.bias.data.fill_(0)

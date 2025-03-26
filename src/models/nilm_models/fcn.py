@@ -1,12 +1,7 @@
-import math
-import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch import Tensor
-from typing import Callable, Optional
 
 # Convolutional Dilated Embedding Block Functions
 class Conv1dSamePadding(nn.Conv1d):
@@ -28,7 +23,7 @@ def conv1d_same_padding(input, weight, bias, stride, dilation, groups):
 
     
 # ======================= Dilated ResNet =======================#
-class Zhang_SeqtoSeq(nn.Module):
+class FCN(nn.Module):
     def __init__(self, window_size, downstreamtask='seq2seq', c_in=1):
         super().__init__()
         self.downstreamtask = downstreamtask
