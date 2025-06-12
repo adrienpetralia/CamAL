@@ -1,8 +1,15 @@
 # CamAL
 
+<div align="center">
+
+[![preprint](https://img.shields.io/static/v1?label=arXiv&message=2502.15637&color=B31B1B&logo=arXiv)](https://arxiv.org/abs/2506.05895)
+[![Python](https://img.shields.io/badge/Python-3.9|3.10|3.11|3.12-blue)]()
+
+</div>
+
 Official codebase implementation for **Few Labels are all you need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series** (IEEE ICDE 2025).
 
-📄 **Paper**: [arXiv:2506.05895](https://arxiv.org/abs/2506.05895)
+📄 **Arxiv Preprint**: [CamAL](https://arxiv.org/abs/2506.05895)
 
 <p align="center">
 <img width="400" src="./assets/IntroFigure.jpg"/>
