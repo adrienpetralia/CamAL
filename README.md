@@ -89,7 +89,7 @@ CamAL enables appliance **detection** (has an appliance been used at all?) and *
 If you use CamAL in your work, please cite our paper:
 
 ```bibtex
-@INPROCEEDINGS{,
+@inproceedings{petralia2025camal,
 author = {Petralia, Adrien and Boniol, Paul and Charpentier, Philippe and Palpanas, Themis},
 booktitle = {2025 IEEE 41st International Conference on Data Engineering (ICDE)},
 title = {Few Labels are All You Need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series},
