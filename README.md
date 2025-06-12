@@ -9,7 +9,7 @@
 
 Official codebase implementation for **Few Labels are all you need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series** (IEEE ICDE 2025).
 
-📄 **Arxiv Preprint**: [CamAL](https://arxiv.org/abs/2506.05895)
+📄 **Arxiv preprint**: [CamAL](https://arxiv.org/abs/2506.05895)
 
 <p align="center">
 <img width="400" src="./assets/IntroFigure.jpg"/>
