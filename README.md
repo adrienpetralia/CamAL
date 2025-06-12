@@ -84,7 +84,20 @@ CamAL enables appliance **detection** (has an appliance been used at all?) and *
 2. **Localization (CAM-based):**  
    If the ensemble detects the appliance, we extract Class Activation Maps (CAMs) from each ResNet, average them, and apply the result as an attention mask. This highlights the appliance’s on/off states in the time series. (Optional) Multiply these binary states by an appliance’s average power and clip by the total consumption to estimate per-appliance power.
 
+## Citing CamAL 📚
 
+If you use CamAL in your work, please cite our paper:
+
+```bibtex
+@INPROCEEDINGS{,
+author = {Petralia, Adrien and Boniol, Paul and Charpentier, Philippe and Palpanas, Themis},
+booktitle = {2025 IEEE 41st International Conference on Data Engineering (ICDE)},
+title = {Few Labels are All You Need: A Weakly Supervised Framework for Appliance Localization in Smart-Meter Series},
+year = {2025},
+doi = {10.1109/ICDE65448.2025.00329},
+publisher = {IEEE Computer Society},
+}
+```
 
 ## Contributors 👨‍👨‍👦‍👦
 
