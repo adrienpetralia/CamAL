@@ -1,7 +1,16 @@
 import torch
 import torch.nn as nn
 
-from src.models.camal.classifiers.layers import pass_through, Flatten
+class Flatten(nn.Module):
+    def __init__(self, out_features):
+        super(Flatten, self).__init__()
+        self.output_dim = out_features
+
+    def forward(self, x):
+        return x.view(-1, self.output_dim)
+
+def pass_through(X):
+    return X
     
 class Inception(nn.Module):
     def __init__(self, in_channels=1, nb_class=2, n_filters=32, n_blocks=2,
